@@ -21,7 +21,7 @@ export default function AttemptList({ history, maxSlots, title = '历史猜测' 
               <div
                 key={i}
                 className={`flex items-center justify-center font-bold rounded h-9 min-w-[2.25rem] text-sm ${
-                  FEEDBACK_COLORS[entry.feedback[i]] || 'bg-gray-200 dark:bg-gray-700'
+                  FEEDBACK_COLORS[entry.feedback?.[i]] || 'bg-gray-200 dark:bg-gray-700'
                 } ${sym && sym.length >= 3 ? 'px-1.5' : ''}`}
                 style={{
                   animation: `flip 0.5s ease ${(i * 80)}ms forwards`

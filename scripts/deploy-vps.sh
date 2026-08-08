@@ -103,7 +103,9 @@ location /ws {
     proxy_pass http://127.0.0.1:8082;
     proxy_http_version 1.1;
     proxy_set_header Upgrade \$http_upgrade;
-    proxy_set_header Connection \"upgrade\";
+    # 注意: 值不能加引号, heredoc 会保留 \" 反斜杠, nginx 发出的 Connection 头带引号
+    # 导致 node 识别不了 upgrade, /ws 握手返回 404（2026-08-08 踩坑）
+    proxy_set_header Connection upgrade;
     proxy_set_header Host \$host;
     proxy_read_timeout 3600s;
     proxy_send_timeout 3600s;

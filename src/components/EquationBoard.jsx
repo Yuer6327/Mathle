@@ -46,8 +46,8 @@ export default function EquationBoard({ equation, currentGuess, onSlotClick, sel
 
 function Slot({ displaySym, answerSymbol, symbolType, onClick, selected, isHint }) {
   const isFilled = displaySym.length > 0;
-  // 根据显示内容决定宽度
-  const len = displaySym.length || (answerSymbol.length);
+  // 根据显示内容决定宽度（联机模式服务端把答案 symbol 抹成 null，空槽位要兜底）
+  const len = displaySym.length || answerSymbol?.length || 1;
   let widthCls;
   if (len >= 4) widthCls = 'min-w-[4rem]';
   else if (len === 3) widthCls = 'min-w-[3rem]';

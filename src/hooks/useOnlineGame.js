@@ -53,6 +53,8 @@ export function useOnlineGame(difficulty, mode) {
           setEquation(msg.equation);
           setSlotCount(msg.equation.answerLength);
           setMyIndex(msg.yourIndex);
+          // 服务端 coop 先手恒为 turnIndex=0（即 yourIndex=0），开局先对齐回合指示
+          setMyTurn(mode !== 'coop' || msg.yourIndex === 0);
           setOpponent({ nickname: msg.opponent.nickname, steps: 0, thinking: false });
           setStartTime(msg.startAt || Date.now());
           setHistory([]);

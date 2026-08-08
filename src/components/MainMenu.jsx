@@ -36,6 +36,7 @@ export default function MainMenu({ onStart, onShowStats, onShowLeaderboard }) {
   };
 
   const totalGames = Object.values(getStats()).reduce((sum, s) => sum + (s.total || 0), 0);
+  const [gameDiff, setGameDiff] = useState('medium'); // 单人 / 人机难度
   const [onlineDiff, setOnlineDiff] = useState('medium');
 
   const startOnline = (m) => {
@@ -137,11 +138,12 @@ export default function MainMenu({ onStart, onShowStats, onShowLeaderboard }) {
       </div>
 
       {/* 模式选择 */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm space-y-3">
         <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 text-center">选择模式</h2>
+        <DifficultyPicker value={gameDiff} onChange={setGameDiff} />
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => onStart('beginner', 'solo')}
+            onClick={() => onStart(gameDiff, 'solo')}
             className="px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 hover:bg-blue-100 transition"
           >
             <div className="text-lg">🎯</div>
@@ -149,7 +151,7 @@ export default function MainMenu({ onStart, onShowStats, onShowLeaderboard }) {
             <div className="text-xs text-gray-400">选难度开始</div>
           </button>
           <button
-            onClick={() => onStart('beginner', 'bot')}
+            onClick={() => onStart(gameDiff, 'bot')}
             className="px-4 py-3 rounded-xl bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 hover:bg-purple-100 transition"
           >
             <div className="text-lg">🤖</div>
@@ -178,21 +180,7 @@ export default function MainMenu({ onStart, onShowStats, onShowLeaderboard }) {
       {/* 联机对战 */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm space-y-4">
         <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 text-center">联机对战 · 实时同步</h2>
-        <div className="flex flex-wrap justify-center gap-1.5">
-          {DIFFICULTY_LABELS && Object.entries(DIFFICULTY_LABELS).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setOnlineDiff(key)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                onlineDiff === key
-                  ? 'bg-wgreen text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <DifficultyPicker value={onlineDiff} onChange={setOnlineDiff} />
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => startOnline('pvp')}
@@ -216,6 +204,27 @@ export default function MainMenu({ onStart, onShowStats, onShowLeaderboard }) {
       <div className="text-center text-xs text-gray-400 pt-4">
         v2.0 · 单人 / 人机 / 联机 / 云同步 / 排行榜
       </div>
+    </div>
+  );
+}
+
+// 难度选择器（单人/人机 与 联机共用）
+function DifficultyPicker({ value, onChange }) {
+  return (
+    <div className="flex flex-wrap justify-center gap-1.5">
+      {Object.entries(DIFFICULTY_LABELS).map(([key, label]) => (
+        <button
+          key={key}
+          onClick={() => onChange(key)}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+            value === key
+              ? 'bg-wgreen text-white'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   );
 }
