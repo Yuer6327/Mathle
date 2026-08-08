@@ -48,9 +48,8 @@ export default function ShareDialog({ open, onClose, history, answer, difficulty
     const ctx = canvas.getContext('2d');
     const cellSize = 44;
     const gap = 4;
-    const textPad = 10;      // 可见符号(=、括号)两侧留白
     const padding = 24;
-    const headerH = 84;
+    const headerH = 80;
     const footerH = 60;
 
     // 有等式则按 token 排布（隐藏槽=色块格子，可见符=纯文本）；无等式则退化为纯格子
@@ -58,34 +57,30 @@ export default function ShareDialog({ open, onClose, history, answer, difficulty
       ? equation.tokens
       : (answer || []).map((_, i) => ({ hidden: true, slotIndex: i, symbol: null, type: 'number' }));
 
-    // 计算单行宽度
-    const rowWidth = tokens.reduce((w, t) => {
-      if (t.hidden) return w + cellSize + gap;
-      ctx.font = 'bold 22px sans-serif';
-      return w + Math.ceil(ctx.measureText(t.symbol).width) + textPad + gap;
-    }, 0) - gap;
-
-    const gridW = rowWidth + padding * 2;
+    // 统一格子宽度：每个 token 各占一格（=、括号仅显示符号，不加背景色）
+    const gridW = tokens.length * (cellSize + gap) + padding * 2 - gap;
     const gridH = history.length * (cellSize + gap) - gap + headerH + footerH + padding;
 
     canvas.width = gridW;
     canvas.height = gridH;
-    // 不填充背景（透明）
 
-    ctx.fillStyle = '#f2f2f2';
+    // 白色背景
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = '#1a1a1a';
     ctx.font = 'bold 22px sans-serif';
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'alphabetic';
     ctx.fillText('MathWordle', canvas.width / 2, 32);
     ctx.font = '14px sans-serif';
-    ctx.fillStyle = '#9ca3af';
+    ctx.fillStyle = '#666';
     ctx.fillText(`${DIFFICULTY_LABELS[difficulty]} · ${steps}步 · ${elapsed}秒`, canvas.width / 2, 56);
 
     const colors = { correct: '#6aaa64', present: '#c9b458', absent: '#787c7e' };
     history.forEach((entry, row) => {
-      let x = padding;
       const y = headerH + row * (cellSize + gap);
-      for (const t of tokens) {
+      tokens.forEach((t, col) => {
+        const x = padding + col * (cellSize + gap);
         if (t.hidden) {
           const idx = t.slotIndex;
           const sym = entry.guess?.[idx];
@@ -97,19 +92,18 @@ export default function ShareDialog({ open, onClose, history, answer, difficulty
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(SYMBOL_DISPLAY[sym] || sym || '', x + cellSize / 2, y + cellSize / 2);
-          x += cellSize + gap;
         } else {
-          ctx.fillStyle = '#e5e5e5';
+          // =、括号：只画符号，不加背景色
+          ctx.fillStyle = '#666';
           ctx.font = 'bold 22px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(t.symbol, x, y + cellSize / 2);
-          x += Math.ceil(ctx.measureText(t.symbol).width) + textPad + gap;
+          ctx.fillText(t.symbol, x + cellSize / 2, y + cellSize / 2);
         }
-      }
+      });
     });
 
-    ctx.fillStyle = '#8b8b8b';
+    ctx.fillStyle = '#999';
     ctx.font = '12px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
