@@ -1,0 +1,19 @@
+name = "mathwordle"
+main = "src/worker.js"
+compatibility_date = "2024-09-01"
+
+# 静态资源：构建产物 dist/ 由 assets 绑定提供，未匹配路径回退到 index.html（SPA）
+assets = { directory = "./dist", not_found_handling = "single-page-application", binding = "ASSETS" }
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mathwordle"
+database_id = "5d3568ec-309c-48c8-9f13-3a3e47aaeec2"
+
+# 自定义路由：wordle.yuer6327.top 的流量都交给这个 Worker
+[[routes]]
+pattern = "wordle.yuer6327.top/*"
+zone_id = "a7aa2aef32198c741273fe14173ebb59"
+
+# 本地开发: npx wrangler dev
+# 部署: npm run build && wrangler deploy

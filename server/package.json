@@ -1,0 +1,18 @@
+{
+  "name": "mathwordle-ws",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "MathWordle 联机 WebSocket 服务（VPS 常驻，由 nginx 反代 /ws → 本服务）",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "setup": "bash setup.sh"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

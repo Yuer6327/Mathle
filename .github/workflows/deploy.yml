@@ -1,0 +1,38 @@
+# push 到 main 后自动部署到 Cloudflare（Wordle Worker + 前端）
+# 需在 GitHub 仓库设置以下 Secrets:
+#   CLOUDFLARE_API_TOKEN  （部署 Worker 的 API Token）
+#   CLOUDFLARE_ACCOUNT_ID （Cloudflare 账号 ID）
+#   JWT_SECRET            （与 VPS server/.env 相同的密钥）
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Deploy worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          secrets: |
+            JWT_SECRET
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
