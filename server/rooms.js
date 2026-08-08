@@ -1,6 +1,7 @@
 // 房间状态机
-// 对抗(pvp)：各自答案，同时玩，先破解者胜
-// 合作(coop)：共享等式，轮流猜，破解则团队胜（不设步数上限，10 分钟超时判负）
+// 对抗(pvp)：各自答案，同时玩，先破解者胜（仅匹配 2 人）
+// 合作(coop)：共享等式，轮流猜，破解则团队胜（匹配 2 人 / 好友房间 N 人）
+// 好友房间：房主 create_room 拿房号，好友 join_room 加入（大厅 → 房主 start → 开始）
 // 服务端权威：生成等式、校验猜测、计算反馈，客户端只负责展示与输入
 import { generateEquation, getAnswer } from '../src/lib/equationGenerator.js';
 import { getSymbolType } from '../src/lib/constants.js';
@@ -9,6 +10,10 @@ import { validateGuess } from './validate.js';
 const GAME_TIMEOUT_MS = 10 * 60 * 1000; // 全局时限 10 分钟
 const COOP_TURN_MS = 60 * 1000;         // 合作单步时限 60s，超时自动过回合
 const SLOT_RETRY = 20;                  // 对抗式下两题槽位数对齐的最大尝试次数
+const DIFFICULTIES = ['beginner', 'easy', 'medium', 'hard', 'expert'];
+const PRIVATE_MAX_PLAYERS = 8;          // 好友房间人数上限
+const CODE_LEN = 6;
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 去掉易混淆的 I O 0 1
 
 function makeEq(difficulty, seed) {
   const eq = generateEquation(difficulty, seed);
@@ -39,6 +44,7 @@ export class Rooms {
   constructor() {
     this.rooms = new Map();     // roomId -> room
     this.memberOf = new Map();  // client.id -> roomId
+    this.byCode = new Map();    // 房号 -> roomId（仅好友房间）
   }
 
   roomOf(client) {
@@ -46,6 +52,7 @@ export class Rooms {
     return id ? this.rooms.get(id) || null : null;
   }
 
+  // ── 匹配开房（保留：随机匹配）──
   create(pair, info) {
     const [a, b] = pair;
     const { mode, difficulty } = info;
@@ -76,6 +83,7 @@ export class Rooms {
 
     const room = {
       id: roomId,
+      private: false,
       mode,
       difficulty,
       players,
@@ -108,6 +116,138 @@ export class Rooms {
     return room;
   }
 
+  // ── 好友房间 ──
+  _genCode() {
+    let code;
+    do {
+      code = Array.from(
+        { length: CODE_LEN },
+        () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]
+      ).join('');
+    } while (this.byCode.has(code));
+    return code;
+  }
+
+  createPrivate(client, msg) {
+    const { mode, difficulty } = msg || {};
+    if (mode !== 'coop' || !DIFFICULTIES.includes(difficulty)) {
+      return client.send({ type: 'error', message: '房间参数不合法' });
+    }
+    // 已在其它房间则先离开
+    const existing = this.roomOf(client);
+    if (existing) this.leave(client);
+
+    const roomId = 'r' + Math.random().toString(36).slice(2, 10);
+    const code = this._genCode();
+    const room = {
+      id: roomId,
+      code,
+      private: true,
+      mode,
+      difficulty,
+      status: 'lobby',      // lobby -> playing -> done
+      hostId: client.id,
+      players: [this._mkPlayer(client)],
+      sharedHistory: [],
+      turnIndex: 0,
+      equation: null,
+      winner: null,
+      timers: [],
+      createdAt: Date.now(),
+    };
+    this.rooms.set(roomId, room);
+    this.byCode.set(code, roomId);
+    this.memberOf.set(client.id, roomId);
+
+    client.send({ type: 'room_created', code, roomId, mode, difficulty });
+    this.broadcastRoom(room);
+    return room;
+  }
+
+  joinPrivate(client, code) {
+    const roomId = this.byCode.get(String(code || '').toUpperCase());
+    const room = roomId ? this.rooms.get(roomId) : null;
+    if (!room) return client.send({ type: 'error', message: '房间不存在或已结束' });
+    if (room.status !== 'lobby') return client.send({ type: 'error', message: '对局已开始，无法加入' });
+    if (room.players.length >= PRIVATE_MAX_PLAYERS) return client.send({ type: 'error', message: '房间已满' });
+    if (room.players.some((p) => p.id === client.id)) {
+      return client.send({ type: 'error', message: '你已在房间中' });
+    }
+    const existing = this.roomOf(client);
+    if (existing && existing.id !== room.id) this.leave(client);
+
+    room.players.push(this._mkPlayer(client));
+    this.memberOf.set(client.id, room.id);
+    client.send({ type: 'room_joined', code: room.code, roomId: room.id, mode: room.mode, difficulty: room.difficulty });
+    this.broadcastRoom(room);
+  }
+
+  startPrivate(client) {
+    const room = this.roomOf(client);
+    if (!room || room.private !== true) return client.send({ type: 'error', message: '你不在房间中' });
+    if (room.status !== 'lobby') return client.send({ type: 'error', message: '对局已开始' });
+    if (room.hostId !== client.id) return client.send({ type: 'error', message: '只有房主可以开始' });
+    if (room.players.length < 2) return client.send({ type: 'error', message: '至少需要 2 名玩家' });
+
+    room.equation = makeEq(room.difficulty, randSeed());
+    room.status = 'playing';
+    room.sharedHistory = [];
+    room.turnIndex = 0;
+    for (const p of room.players) { p.status = 'playing'; p.steps = 0; }
+
+    for (const p of room.players) {
+      p.client.send({
+        type: 'room_started',
+        roomId: room.id,
+        mode: room.mode,
+        difficulty: room.difficulty,
+        yourIndex: room.players.indexOf(p),
+        hostIndex: room.players.findIndex((x) => x.id === room.hostId),
+        players: room.players.map((x) => ({ id: x.id, nickname: x.nickname })),
+        turnIndex: room.turnIndex,
+        equation: serializeEquation(room.equation),
+        startAt: Date.now(),
+      });
+    }
+    this.schedule(room, GAME_TIMEOUT_MS, 'overall', () => this.end(room, 'timeout'));
+    this.scheduleTurnPass(room);
+  }
+
+  _mkPlayer(client) {
+    return {
+      client,
+      id: client.id,
+      nickname: client.nickname || '玩家',
+      steps: 0,
+      history: [],
+      status: 'lobby',
+    };
+  }
+
+  // 广播房间当前状态（大厅/进行中）给所有人
+  broadcastRoom(room) {
+    this.broadcast(room, {
+      type: 'room_state',
+      code: room.code,
+      status: room.status,
+      hostId: room.hostId,
+      players: room.players.map((p) => ({ id: p.id, nickname: p.nickname })),
+      turnIndex: room.status === 'playing' ? room.turnIndex : undefined,
+      history: room.status === 'playing'
+        ? room.sharedHistory.map((h) => ({ guess: h.guess, feedback: h.feedback }))
+        : [],
+      steps: room.sharedHistory.length,
+    });
+  }
+
+  _answerOf(room, player) {
+    return (room.private ? room.equation : player.eq).answer;
+  }
+
+  _seedOf(room, player) {
+    return (room.private ? room.equation : player.eq).seed;
+  }
+
   guess(client, msg) {
     const room = this.roomOf(client);
     if (!room) return client.send({ type: 'error', message: '你不在对局中' });
@@ -121,7 +261,11 @@ export class Rooms {
     }
 
     const { symbols } = msg || {};
-    const res = validateGuess({ symbols, difficulty: room.difficulty, answer: me.eq.answer });
+    const res = validateGuess({
+      symbols,
+      difficulty: room.difficulty,
+      answer: this._answerOf(room, me),
+    });
     if (!res.ok) return client.send({ type: 'error', message: res.reason });
 
     if (room.mode === 'coop') {
@@ -130,16 +274,17 @@ export class Rooms {
       const steps = room.sharedHistory.length;
       if (res.correct) { room.winner = 'team'; return this.end(room, 'coop_win'); }
 
-      room.turnIndex = 1 - myIdx;
+      room.turnIndex = (room.turnIndex + 1) % room.players.length;
       this.broadcast(room, {
         type: 'room_state',
+        status: 'playing',
         history: room.sharedHistory.map((h) => ({ guess: h.guess, feedback: h.feedback })),
         steps,
         turnIndex: room.turnIndex,
       });
       this.scheduleTurnPass(room);
     } else {
-      // 对抗：各自历史，反馈只发给本人，对手只看到进度
+      // 对抗（仅匹配 2 人）：各自历史，反馈只发给本人，对手只看到进度
       me.steps++;
       me.history.push({ guess: symbols, feedback: res.feedback });
       if (res.correct) { room.winner = myIdx; return this.end(room, 'pvp_win'); }
@@ -156,21 +301,41 @@ export class Rooms {
   leave(client) {
     const room = this.roomOf(client);
     if (!room) return;
+
+    // 好友房间大厅阶段：移除玩家，房主转移，空房删除
+    if (room.private && room.status === 'lobby') {
+      const idx = room.players.findIndex((p) => p.id === client.id);
+      if (idx >= 0) room.players.splice(idx, 1);
+      if (room.hostId === client.id && room.players.length > 0) {
+        room.hostId = room.players[0].id;
+      }
+      this.memberOf.delete(client.id);
+      if (room.players.length === 0) {
+        this.cleanup(room);
+      } else {
+        this.broadcastRoom(room);
+      }
+      return;
+    }
+
     if (room.status !== 'playing') return this.cleanup(room);
 
     const myIdx = room.players.findIndex((p) => p.client.id === client.id);
     if (room.mode === 'coop') {
       // 合作中途离场 → 对局作废，不记成绩
       room.status = 'done';
-      const other = room.players[1 - myIdx];
-      other.client.send({
-        type: 'game_over',
-        outcome: 'aborted',
-        reason: '队友离开，对局取消',
-        steps: room.sharedHistory.length,
-        answer: other.eq.answer,
-        seed: other.eq.seed,
-      });
+      this.clearTimers(room);
+      for (const p of room.players) {
+        if (p.id === client.id) continue;
+        p.client.send({
+          type: 'game_over',
+          outcome: 'aborted',
+          reason: '有玩家离开，对局取消',
+          steps: room.sharedHistory.length,
+          answer: this._answerOf(room, p),
+          seed: this._seedOf(room, p),
+        });
+      }
       return this.cleanup(room);
     }
     // 对抗离场 → 对方直接获胜
@@ -183,8 +348,7 @@ export class Rooms {
     room.status = 'done';
     this.clearTimers(room);
 
-    const [a, b] = room.players;
-    const sendOver = (p, outcome, reason) => {
+    const sendOver = (p, outcome, reason, opponentSteps = 0) => {
       p.client.send({
         type: 'game_over',
         outcome,
@@ -192,9 +356,9 @@ export class Rooms {
         mode: room.mode,
         difficulty: room.difficulty,
         steps: room.mode === 'coop' ? room.sharedHistory.length : p.steps,
-        opponentSteps: room.mode === 'coop' ? room.sharedHistory.length : room.players.find((x) => x !== p).steps,
-        answer: p.eq.answer,
-        seed: p.eq.seed,
+        opponentSteps,
+        answer: this._answerOf(room, p),
+        seed: this._seedOf(room, p),
         winner: room.winner,
       });
     };
@@ -203,36 +367,35 @@ export class Rooms {
       case 'pvp_win': {
         const w = room.players[room.winner];
         const l = room.players[1 - room.winner];
-        sendOver(w, 'win', '你破解了等式');
-        sendOver(l, 'lose', '对手先破解了等式');
+        sendOver(w, 'win', '你破解了等式', l.steps);
+        sendOver(l, 'lose', '对手先破解了等式', w.steps);
         break;
       }
       case 'coop_win':
-        sendOver(a, 'win', '合作成功');
-        sendOver(b, 'win', '合作成功');
+        for (const p of room.players) sendOver(p, 'win', '合作成功');
         break;
       case 'timeout': {
         if (room.mode === 'pvp') {
+          const [a, b] = room.players;
           if (a.steps === b.steps) {
             sendOver(a, 'draw', '时间到，双方平局');
             sendOver(b, 'draw', '时间到，双方平局');
           } else {
             const w = a.steps < b.steps ? 0 : 1;
             const l = 1 - w;
-            sendOver(room.players[w], 'win', '时间到，你步数更少');
-            sendOver(room.players[l], 'lose', '时间到，对手步数更少');
+            sendOver(room.players[w], 'win', '时间到，你步数更少', room.players[l].steps);
+            sendOver(room.players[l], 'lose', '时间到，对手步数更少', room.players[w].steps);
           }
         } else {
-          sendOver(a, 'lose', '时间到');
-          sendOver(b, 'lose', '时间到');
+          for (const p of room.players) sendOver(p, 'lose', '时间到');
         }
         break;
       }
       case 'forfeit': {
         const w = room.players[room.winner];
         const l = room.players[1 - room.winner];
-        sendOver(w, 'win', '对手离开了，你获胜');
-        if (l.client.ws.readyState === 1) sendOver(l, 'lose', '你离开了对局');
+        sendOver(w, 'win', '对手离开了，你获胜', 0);
+        if (l.client.ws.readyState === 1) sendOver(l, 'lose', '你离开了对局', w.steps);
         break;
       }
     }
@@ -250,9 +413,10 @@ export class Rooms {
     this.clearTimers(room, 'turn');
     this.schedule(room, COOP_TURN_MS, 'turn', () => {
       if (room.status !== 'playing') return;
-      room.turnIndex = 1 - room.turnIndex;
+      room.turnIndex = (room.turnIndex + 1) % room.players.length;
       this.broadcast(room, {
         type: 'room_state',
+        status: 'playing',
         history: room.sharedHistory.map((h) => ({ guess: h.guess, feedback: h.feedback })),
         steps: room.sharedHistory.length,
         turnIndex: room.turnIndex,
@@ -278,6 +442,7 @@ export class Rooms {
 
   cleanup(room) {
     this.clearTimers(room);
+    if (room.private) this.byCode.delete(room.code);
     for (const p of room.players) this.memberOf.delete(p.client.id);
     this.rooms.delete(room.id);
   }

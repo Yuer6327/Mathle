@@ -137,6 +137,12 @@ export function useGame(difficulty, mode = 'solo') {
     return pick;
   }, [hintUsed, status, answer, history]);
 
+  // 倒计时超时 → 判负
+  const timeout = useCallback(() => {
+    if (status !== 'playing') return;
+    setStatus('lost');
+  }, [status]);
+
   // 清理定时器
   useEffect(() => {
     return () => {
@@ -162,6 +168,7 @@ export function useGame(difficulty, mode = 'solo') {
     clearAll,
     submitGuess,
     useHint,
+    timeout,
     setSelectedSlot
   };
 }

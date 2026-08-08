@@ -50,7 +50,7 @@ echo "✓ SSH 连接正常"
 # 3. 上传代码（排除 node_modules / 测试 / 密钥）
 echo "→ 上传 server/ + src/lib/ 到 /opt/mathwordle ..."
 mkdir -p /tmp/mw_tar 2>/dev/null || true
-tar -czf - --exclude='server/node_modules' --exclude='server/smoke.mjs' --exclude='server/.env' server src/lib | \
+tar -czf - --exclude='server/node_modules' --exclude='server/smoke.mjs' --exclude='server/room-smoke.mjs' --exclude='server/.env' server src/lib | \
   SSHH 'rm -rf /opt/mathwordle && mkdir -p /opt/mathwordle && tar -xzf - -C /opt/mathwordle && echo "✓ 代码已上传"'
 
 # 3.1 补 /opt/mathwordle/package.json，让 src/lib/*.js 按 ESM 加载（Node 18 需要）

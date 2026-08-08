@@ -34,7 +34,12 @@ export const api = {
       }),
     me: () => apiCall('/auth/me')
   },
-  wsTicket: () => apiCall('/ws-ticket'),
+  wsTicket: (params) => {
+    const qs = params
+      ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== '')).toString()
+      : '';
+    return apiCall(`/ws-ticket${qs}`);
+  },
   stats: {
     get: () => apiCall('/stats'),
     submit: (data) =>

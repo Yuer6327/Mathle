@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useGame } from '../hooks/useGame.js';
 import { getAvailableSymbols } from '../lib/equationGenerator.js';
-import { SYMBOL_DISPLAY, DIFFICULTY_LABELS, DIFFICULTY_COLORS } from '../lib/constants.js';
+import { SYMBOL_DISPLAY, DIFFICULTY_LABELS, DIFFICULTY_COLORS, DIFFICULTY_TIME_LIMIT } from '../lib/constants.js';
 import { recordGame } from '../lib/storage.js';
 import { api } from '../lib/api.js';
 import { useAuth } from '../hooks/useAuth.jsx';
@@ -92,6 +92,11 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
     }
   };
 
+  const handleTimeout = () => {
+    game.timeout();
+    setMessage('⏰ 时间到，本局失败');
+  };
+
   const handleSlotClick = (slotIdx) => {
     // 点击有值的槽位清除
     if (game.currentGuess[slotIdx] !== null) {
@@ -129,7 +134,11 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
             {mode === 'bot' ? '人机' : mode === 'solo' ? '单人' : mode}
           </span>
         </div>
-        <Timer startTime={game.startTime} />
+        <Timer
+          startTime={game.startTime}
+          maxSeconds={DIFFICULTY_TIME_LIMIT[difficulty]}
+          onTimeout={handleTimeout}
+        />
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3 max-w-md mx-auto w-full">
@@ -236,6 +245,7 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
         startTime={game.startTime}
         mode={mode}
         won={game.status === 'won'}
+        equation={game.equation}
       />
     </div>
   );

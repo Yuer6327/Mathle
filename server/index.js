@@ -85,13 +85,16 @@ wss.on('connection', (ws, req, { user }) => {
   });
   ws.on('error', () => {});
 
-  client.send({ type: 'connected', nickname: client.nickname });
+  client.send({ type: 'connected', nickname: client.nickname, id: client.id });
 });
 
 function handleMessage(client, msg) {
   switch (msg.type) {
     case 'find': return matchmaking.add(client, msg);
     case 'cancel_find': return matchmaking.remove(client);
+    case 'create_room': return rooms.createPrivate(client, msg);
+    case 'join_room': return rooms.joinPrivate(client, msg.code);
+    case 'start_room': return rooms.startPrivate(client);
     case 'guess': return rooms.guess(client, msg);
     case 'leave': return rooms.leave(client);
     default: return client.send({ type: 'error', message: '未知消息类型' });

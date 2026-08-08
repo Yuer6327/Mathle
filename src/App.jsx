@@ -1,21 +1,21 @@
 import React from 'react';
-import { HashRouter, Routes, Route, useNavigate, useParams } from 'react-router-dom';
+import { HashRouter, Routes, Route, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth.jsx';
 import MainMenu from './components/MainMenu.jsx';
 import GameScreen from './components/GameScreen.jsx';
+import RoomScreen from './components/RoomScreen.jsx';
 import StatsScreen from './components/StatsScreen.jsx';
 import LeaderboardScreen from './components/LeaderboardScreen.jsx';
-import ThemeToggle from './components/ThemeToggle.jsx';
 import { getStats } from './lib/storage.js';
 
 export default function App() {
   return (
     <AuthProvider>
       <HashRouter>
-        <ThemeToggle />
         <Routes>
           <Route path="/" element={<MenuWrapper />} />
           <Route path="/game/:difficulty/:mode" element={<GameWrapper />} />
+          <Route path="/room/:difficulty" element={<RoomWrapper />} />
           <Route path="/stats" element={<StatsWrapper />} />
           <Route path="/leaderboard" element={<LeaderboardWrapper />} />
         </Routes>
@@ -32,6 +32,13 @@ function MenuWrapper() {
       <MainMenu
         stats={stats}
         onStart={(difficulty, mode) => navigate(`/game/${difficulty}/${mode}`)}
+        onRoomStart={(difficulty, createOrCode) =>
+          navigate(
+            createOrCode === 'create'
+              ? `/room/${difficulty}?create=1`
+              : `/room/${difficulty}?code=${encodeURIComponent(createOrCode)}`
+          )
+        }
         onShowStats={() => navigate('/stats')}
         onShowLeaderboard={() => navigate('/leaderboard')}
       />
@@ -46,6 +53,22 @@ function GameWrapper() {
     <GameScreen
       difficulty={difficulty}
       mode={mode}
+      onExit={() => navigate('/')}
+    />
+  );
+}
+
+function RoomWrapper() {
+  const navigate = useNavigate();
+  const { difficulty = 'medium' } = useParams();
+  const [searchParams] = useSearchParams();
+  const create = searchParams.get('create') === '1';
+  const code = searchParams.get('code') || '';
+  return (
+    <RoomScreen
+      difficulty={difficulty}
+      create={create}
+      code={code}
       onExit={() => navigate('/')}
     />
   );

@@ -18,42 +18,51 @@ export const DIFFICULTY_COLORS = {
   expert: 'text-red-600 dark:text-red-400'
 };
 
-// 各难度的符号池
+// 各难度的符号池（与生成器用到的符号保持一致）
 export const SYMBOL_POOLS = {
   beginner: {
-    numbers: ['1','2','3','4','5','6','7','8','9'],
-    operators: ['+', '-'],
-    functions: []
-  },
-  easy: {
-    numbers: ['1','2','3','4','5','6','7','8','9','0'],
-    operators: ['+', '-', '×', '÷'],
-    functions: []
-  },
-  medium: {
     numbers: ['0','1','2','3','4','5','6','7','8','9'],
-    operators: ['+', '-', '×', '÷', '^', '%'],
+    operators: ['+', '-', '×', '^', '%'],
     functions: ['sqrt']
   },
+  easy: {
+    numbers: ['0','1','2','3','4','5','6','7','8','9','pi'],
+    operators: ['+', '-', '×', '÷'],
+    functions: ['sin', 'cos', 'log']
+  },
+  medium: {
+    numbers: ['0','1','2','3','4','5','6','7','8','9','pi'],
+    operators: ['+', '-', '×', '÷', '^'],
+    functions: ['sqrt', 'sin', 'cos', 'log']
+  },
   hard: {
-    numbers: ['0','1','2','3','4','5','6','7','8','9','pi','e'],
-    operators: ['+', '-', '×', '÷', '^', '%'],
-    functions: ['sin', 'cos', 'tan', 'log']
+    numbers: ['0','1','2','3','4','5','6','7','8','9'],
+    operators: ['+', '-', '×', '^'],
+    functions: ['sqrt']
   },
   expert: {
-    numbers: ['0','1','2','3','4','5','6','7','8','9','pi','e'],
-    operators: ['+', '-', '×', '÷', '^', '%'],
-    functions: ['sqrt', 'sin', 'cos', 'tan', 'log']
+    numbers: ['0','1','2','3','4','5','6','7','8','9','pi'],
+    operators: ['+', '-', '×', '÷', '^'],
+    functions: ['sqrt', 'sin', 'cos']
   }
 };
 
 // 各难度的槽位数量范围
 export const SLOT_RANGES = {
-  beginner: [3, 4],
-  easy: [4, 5],
-  medium: [5, 6],
-  hard: [6, 8],
-  expert: [7, 10]
+  beginner: [6, 8],
+  easy: [7, 10],
+  medium: [8, 12],
+  hard: [6, 10],
+  expert: [10, 18]
+};
+
+// 各难度限时（秒）—— 倒计时用；困难/极难表达式更长，时间放宽
+export const DIFFICULTY_TIME_LIMIT = {
+  beginner: 3 * 60,
+  easy: 4 * 60,
+  medium: 5 * 60,
+  hard: 7 * 60,
+  expert: 10 * 60
 };
 
 // 反馈颜色

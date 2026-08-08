@@ -4,14 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>MathWordle - 数学版 Wordle</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔢</text></svg>" />
+  <link rel="icon" href="https://blog.yuer6327.top/favicon/gravatar.png" />
   <script>
-    // 防止 FOUC 的主题初始化
-    (function() {
-      const saved = localStorage.getItem('mw-theme');
-      const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      if (theme === 'dark') document.documentElement.classList.add('dark');
-    })();
+    // 只保留暗色主题，防止 FOUC
+    document.documentElement.classList.add('dark');
   </script>
 </head>
 <body>

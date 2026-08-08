@@ -222,6 +222,7 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
           startTime={game.startTime}
           mode={mode}
           won={game.status === 'won'}
+          equation={game.equation}
         />
       )}
     </div>

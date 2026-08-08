@@ -64,7 +64,7 @@ export function recordGame(difficulty, mode, result, steps, timeSeconds) {
 }
 
 export function getTheme() {
-  return localStorage.getItem(THEME_KEY) || 'light';
+  return localStorage.getItem(THEME_KEY) || 'dark';
 }
 
 export function setTheme(theme) {
