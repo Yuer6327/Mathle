@@ -21,7 +21,6 @@ DB   (D1 SQLite, APAC)          → 用户、游戏记录、排行榜
 ### 1. 安装依赖
 
 ```bash
-cd mathwordle
 npm install
 ```
 
@@ -128,38 +127,44 @@ npx wrangler dev --proxy 5173
 ## 文件结构
 
 ```
-mathwordle/
-├── functions/                    ← Pages Functions (API)
+├── .github/workflows/          ← push 到 main 自动部署 Cloudflare
+├── functions/                  ← Pages Functions (API)
 │   └── api/
-│       ├── _middleware.js        ← CORS 中间件
+│       ├── _middleware.js      ← CORS 中间件
 │       ├── _lib/
-│       │   ├── jwt.js            ← JWT 签发/验证
-│       │   ├── crypto.js         ← PBKDF2 密码哈希
-│       │   └── response.js       ← JSON 响应工具
+│       │   ├── jwt.js          ← JWT 签发/验证
+│       │   ├── crypto.js       ← PBKDF2 密码哈希
+│       │   └── response.js     ← JSON 响应工具
 │       ├── auth/
-│       │   ├── register.js       ← POST /api/auth/register
-│       │   ├── login.js          ← POST /api/auth/login
-│       │   └── me.js             ← GET  /api/auth/me
-│       ├── stats.js              ← GET/POST /api/stats
+│       │   ├── register.js     ← POST /api/auth/register
+│       │   ├── login.js        ← POST /api/auth/login
+│       │   └── me.js           ← GET  /api/auth/me
+│       ├── ws-ticket.js        ← GET  /api/ws-ticket（联机 ticket）
+│       ├── stats.js            ← GET/POST /api/stats
 │       └── leaderboard/
-│           └── [difficulty].js   ← GET /api/leaderboard/:difficulty
+│           └── [difficulty].js ← GET /api/leaderboard/:difficulty
 ├── migrations/
-│   └── 0001_init.sql             ← D1 初始化 SQL
+│   └── 0001_init.sql           ← D1 初始化 SQL
+├── server/                     ← VPS 联机 WebSocket 服务（部署到 VPS，见 server/README.md）
+├── scripts/
+│   └── deploy-vps.sh           ← 一键部署 VPS 联机服务
 ├── src/
-│   ├── worker.js                  ← Worker 入口（路由 /api/* + 静态资源转发）
+│   ├── worker.js               ← Worker 入口（路由 /api/* + 静态资源转发）
 │   ├── lib/
-│   │   ├── evaluator.js          ← 表达式解析器
-│   │   ├── equationGenerator.js  ← 等式生成
-│   │   ├── feedback.js           ← Wordle 反馈算法
-│   │   ├── bot.js                ← Bot AI
-│   │   ├── storage.js            ← localStorage
-│   │   ├── api.js                ← API 客户端
-│   │   └── constants.js          ← 难度/符号配置
+│   │   ├── evaluator.js        ← 表达式解析器
+│   │   ├── equationGenerator.js← 等式生成
+│   │   ├── feedback.js         ← Wordle 反馈算法
+│   │   ├── bot.js              ← Bot AI
+│   │   ├── storage.js          ← localStorage
+│   │   ├── api.js              ← API 客户端
+│   │   ├── ws.js               ← WebSocket 联机客户端
+│   │   └── constants.js        ← 难度/符号配置
 │   ├── hooks/
-│   │   ├── useGame.js            ← 游戏状态
-│   │   └── useAuth.jsx           ← 认证状态
-│   └── components/               ← UI 组件
-├── wrangler.toml                 ← Cloudflare 配置（Worker + assets + D1 + 路由）
+│   │   ├── useGame.js          ← 游戏状态
+│   │   ├── useOnlineGame.js    ← 联机对局状态
+│   │   └── useAuth.jsx         ← 认证状态
+│   └── components/             ← UI 组件（含 OnlineGameScreen.jsx）
+├── wrangler.toml               ← Cloudflare 配置（Worker + assets + D1 + 路由）
 └── package.json
 ```
 

@@ -10,7 +10,7 @@
 #   VPS_SSH_PORT  默认 47641
 #   VPS_USER      默认 root
 #   VPS_SSH_PASS  SSH 密码（可选；不设则走密钥）
-#   JWT_SECRET    联机用密钥（不设则自动从 mathwordle/.dev.vars 读取）
+#   JWT_SECRET    联机用密钥（不设则自动从仓库根 .dev.vars 读取）
 #
 # 步骤: 上传代码 → 装 ws → 写 .env → systemd 单元 → nginx /ws 路由 → 启动
 set -euo pipefail
