@@ -27,7 +27,12 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      await api.auth.logout();
+    } catch (e) {
+      // 网络失败也照样清除本地登录态（HttpOnly cookie 仍在，刷新后可能回弹）
+    }
     setUser(null);
   }, []);
 

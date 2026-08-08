@@ -2,6 +2,7 @@
 // 静态资源（dist/）由 assets 绑定提供，/api/* 由下方路由分发到现有 Pages Functions 处理函数
 import { onRequestPost as registerPost } from '../functions/api/auth/register.js';
 import { onRequestPost as loginPost } from '../functions/api/auth/login.js';
+import { onRequestPost as logoutPost } from '../functions/api/auth/logout.js';
 import { onRequestGet as meGet } from '../functions/api/auth/me.js';
 import { onRequestGet as statsGet, onRequestPost as statsPost } from '../functions/api/stats.js';
 import { onRequestGet as leaderboardGet } from '../functions/api/leaderboard/[difficulty].js';
@@ -40,6 +41,8 @@ export default {
       response = await registerPost(ctx);
     } else if (pathname === '/api/auth/login' && request.method === 'POST') {
       response = await loginPost(ctx);
+    } else if (pathname === '/api/auth/logout' && request.method === 'POST') {
+      response = await logoutPost(ctx);
     } else if (pathname === '/api/auth/me' && request.method === 'GET') {
       response = await meGet(ctx);
     } else if (pathname === '/api/ws-ticket' && request.method === 'GET') {

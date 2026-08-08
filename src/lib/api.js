@@ -32,6 +32,8 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ nickname, password })
       }),
+    logout: () =>
+      apiCall('/auth/logout', { method: 'POST' }),
     me: () => apiCall('/auth/me')
   },
   wsTicket: (params) => {
