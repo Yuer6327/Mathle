@@ -139,6 +139,7 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
           startTime={game.startTime}
           maxSeconds={DIFFICULTY_TIME_LIMIT[difficulty]}
           onTimeout={handleTimeout}
+          active={game.status === 'playing'}
         />
       </div>
 

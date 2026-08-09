@@ -191,7 +191,7 @@ export default function RoomScreen({ difficulty, create = false, code = '', onEx
           </span>
           <span className="text-xs text-neutral-400 font-mono">房 {game.roomCode}</span>
         </div>
-        <Timer startTime={game.startTime} />
+        <Timer startTime={game.startTime} active={game.status === 'playing'} />
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3 max-w-md mx-auto w-full">

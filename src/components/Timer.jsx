@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 
 // 计时器：不传 maxSeconds 时正计时；传 maxSeconds 时倒计时（显示剩余时间）
-export default function Timer({ startTime, onTimeout, maxSeconds = null }) {
+// active=false 时停止计时（冻结在当前值），用于对局结束/成功后
+export default function Timer({ startTime, onTimeout, maxSeconds = null, active = true }) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    if (!startTime) return;
+    if (!startTime || !active) return;
     const id = setInterval(() => {
       const sec = Math.floor((Date.now() - startTime) / 1000);
       setElapsed(sec);
@@ -15,7 +16,7 @@ export default function Timer({ startTime, onTimeout, maxSeconds = null }) {
       }
     }, 200);
     return () => clearInterval(id);
-  }, [startTime, maxSeconds, onTimeout]);
+  }, [startTime, maxSeconds, onTimeout, active]);
 
   const remaining = maxSeconds ? Math.max(0, maxSeconds - elapsed) : null;
   const display = remaining !== null ? remaining : elapsed;

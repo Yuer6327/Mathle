@@ -121,7 +121,7 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
           <span className={`font-bold text-sm ${DIFFICULTY_COLORS[difficulty]}`}>{DIFFICULTY_LABELS[difficulty]}</span>
           <span className="text-sm text-neutral-400">{MODE_LABEL[mode]}</span>
         </div>
-        <Timer startTime={game.startTime} />
+        <Timer startTime={game.startTime} active={game.status === 'playing'} />
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3 max-w-md mx-auto w-full">
