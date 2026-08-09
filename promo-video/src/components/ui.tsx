@@ -1,5 +1,5 @@
 import React from 'react';
-import {AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig} from 'remotion';
+import {AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
 import {C} from '../theme';
 import {sans} from '../fonts';
 
@@ -26,8 +26,10 @@ export function appear(frame: number, start: number, duration = 12, y = 24) {
   return {opacity, translate};
 }
 
-// 场景统一画布：暗色背景 + 顶部细网格光晕 + 底部版权角标
+// 场景统一画布：暗色背景 + 顶部细网格光晕 + 底部版权角标 + 左上角网站图标(头像)
 export const SceneFrame: React.FC<{children?: React.ReactNode}> = ({children}) => {
+  const frame = useNormFrame();
+  const a = appear(frame, 6, 12, -6); // 头像淡入
   return (
     <AbsoluteFill style={{backgroundColor: C.bg, overflow: 'hidden'}}>
       {/* 顶部微弱网格光晕，呼应“等式”主题 */}
@@ -50,6 +52,39 @@ export const SceneFrame: React.FC<{children?: React.ReactNode}> = ({children}) =
           WebkitMaskImage: 'radial-gradient(80% 60% at 50% 40%, black, transparent)',
         }}
       />
+      {/* 左上角网站图标（作者头像） */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 36,
+          left: 40,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          opacity: a.opacity,
+          translate: a.translate,
+          zIndex: 5,
+        }}
+      >
+        <Img
+          src={staticFile('avatar-256.png')}
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: 18,
+            border: '2px solid rgba(255,255,255,0.22)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          }}
+        />
+        <div style={{display: 'flex', flexDirection: 'column', gap: 2}}>
+          <span style={{fontFamily: sans, fontSize: 22, fontWeight: 700, color: C.text}}>
+            MathWordle
+          </span>
+          <span style={{fontFamily: sans, fontSize: 14, color: C.text3}}>
+            wordle.yuer6327.top
+          </span>
+        </div>
+      </div>
       {/* 底部版权角标 */}
       <div
         style={{

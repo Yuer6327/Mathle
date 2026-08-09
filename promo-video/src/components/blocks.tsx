@@ -1,5 +1,5 @@
 import React from 'react';
-import {interpolate} from 'remotion';
+import {Img, interpolate, staticFile} from 'remotion';
 import {C} from '../theme';
 import {sans, mono} from '../fonts';
 import {appear, useNormFrame} from './ui';
@@ -202,6 +202,83 @@ export const Chip: React.FC<{children: React.ReactNode; color?: string; size?: n
       }}
     >
       {children}
+    </div>
+  );
+};
+
+// 真实网站截图手机框（截图 520×1000，按比例缩放）
+export const Phone: React.FC<{src: string; width?: number; delay?: number}> = ({
+  src,
+  width = 400,
+  delay = 0,
+}) => {
+  const frame = useNormFrame();
+  const a = appear(frame, delay, 14, 30);
+  const h = Math.round((width * 1000) / 520);
+  return (
+    <div style={{opacity: a.opacity, translate: a.translate}}>
+      <div
+        style={{
+          width,
+          height: h,
+          borderRadius: 30,
+          border: '3px solid #3d3d3d',
+          backgroundColor: '#0d0d0d',
+          overflow: 'hidden',
+          boxShadow: '0 30px 90px rgba(0,0,0,0.65)',
+          position: 'relative',
+        }}
+      >
+        <Img src={staticFile(src)} style={{width: '100%', height: '100%'}} />
+      </div>
+    </div>
+  );
+};
+
+// 文字要点（图标 + 标题 + 描述），用于分屏场景的讲解文字
+export const Bullet: React.FC<{
+  icon: string;
+  title: string;
+  desc: string;
+  accent?: string;
+  start?: number;
+}> = ({icon, title, desc, accent = C.green, start = 0}) => {
+  const frame = useNormFrame();
+  const a = appear(frame, start, 12, 22);
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 22,
+        opacity: a.opacity,
+        translate: a.translate,
+      }}
+    >
+      <div
+        style={{
+          width: 72,
+          height: 72,
+          borderRadius: 20,
+          backgroundColor: `${accent}1f`,
+          border: `2px solid ${accent}55`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 34,
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </div>
+      <div style={{display: 'flex', flexDirection: 'column', gap: 4}}>
+        <div style={{fontFamily: sans, fontSize: 38, fontWeight: 700, color: C.text}}>
+          {title}
+        </div>
+        <div style={{fontFamily: sans, fontSize: 26, fontWeight: 500, color: C.text2}}>
+          {desc}
+        </div>
+      </div>
     </div>
   );
 };

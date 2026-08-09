@@ -75,8 +75,7 @@ export const MathleVideo: React.FC = () => {
   );
 };
 
-// 实际内容时长（秒）：各场景时长之和 − 过渡时长之和，再换算到 60fps 下的帧数
-export const TOTAL_SECONDS = Math.round(
-  (Object.values(SCENE).reduce((a, b) => a + b, 0) - 7 * TRANSITION) / 30
-);
-export const TOTAL_FRAMES = TOTAL_SECONDS * FPS;
+// 实际内容时长：各场景时长之和 − 过渡时长之和（每个过渡从后续场景扣过渡时长）
+// 直接给精确帧数，避免 round 造成末尾黑帧/裁切
+export const TOTAL_FRAMES = (Object.values(SCENE).reduce((a, b) => a + b, 0) - 7 * TRANSITION) * F;
+export const TOTAL_SECONDS = TOTAL_FRAMES / FPS;
