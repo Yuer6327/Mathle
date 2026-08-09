@@ -87,7 +87,9 @@ NoNewPrivileges=true
 WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
-systemctl enable --now mathwordle-ws
+systemctl enable mathwordle-ws
+# enable --now 不会重启已运行的服务，必须 restart 才能真正加载新上传的代码
+systemctl restart mathwordle-ws
 for i in $(seq 1 10); do
   st=$(systemctl is-active mathwordle-ws || true)
   [ "$st" = "active" ] && break
