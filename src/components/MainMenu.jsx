@@ -157,28 +157,31 @@ export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLead
         <div className="grid grid-cols-2 gap-3">
           <ModeCard icon="shield" title="1v1 对抗" sub="随机匹配" onClick={() => startOnline('pvp')} />
           <ModeCard icon="users" title="合作模式" sub="随机匹配" onClick={() => startOnline('coop')} />
-        </div>
-
-        {/* 好友房间 */}
-        <div className="border-t border-neutral-800 pt-4 space-y-3">
-          <h3 className="text-xs font-semibold tracking-widest text-neutral-500 text-center">好友房间</h3>
-          <ModeCard icon="home" title="创建房间" sub="生成房号邀请好友" onClick={() => onRoomStart(onlineDiff, 'create')} wide />
-          <div className="flex gap-2">
-            <input
-              value={roomCode}
-              onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-              onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
-              placeholder="输入房号"
-              maxLength={6}
-              className="flex-1 min-w-0 px-3 py-2.5 rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-100 placeholder-neutral-500 text-center font-mono tracking-widest uppercase focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
-            />
-            <button
-              onClick={handleJoinRoom}
-              disabled={!roomCode.trim()}
-              className="px-4 py-2.5 rounded-lg bg-neutral-100 text-neutral-950 text-sm font-semibold hover:bg-neutral-200 transition disabled:opacity-40"
-            >
-              加入
-            </button>
+          <ModeCard icon="home" title="创建房间" sub="生成房号邀请好友" onClick={() => onRoomStart(onlineDiff, 'create')} />
+          {/* 加入房间 */}
+          <div className="px-3 py-3.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-600 transition">
+            <span className="mx-auto mb-1.5 flex justify-center text-neutral-400">
+              <Icon name="doorIn" className="w-5 h-5" />
+            </span>
+            <span className="block text-sm font-semibold text-neutral-100 text-center">加入房间</span>
+            <span className="block text-xs text-neutral-500 mt-0.5 text-center">输入房号快速加入</span>
+            <div className="mt-2.5 flex gap-1.5">
+              <input
+                value={roomCode}
+                onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
+                placeholder="房号"
+                maxLength={6}
+                className="min-w-0 flex-1 px-2 py-2 rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-100 placeholder-neutral-600 text-center font-mono tracking-widest uppercase text-sm focus:outline-none focus:border-neutral-400"
+              />
+              <button
+                onClick={handleJoinRoom}
+                disabled={!roomCode.trim()}
+                className="px-3 py-2 rounded-lg bg-neutral-100 text-neutral-950 text-sm font-semibold hover:bg-neutral-200 transition disabled:opacity-40"
+              >
+                加入
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -199,21 +202,17 @@ export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLead
 }
 
 // 模式卡片（线性图标 + 标题 + 副标题）
-function ModeCard({ icon, title, sub, onClick, wide = false }) {
+function ModeCard({ icon, title, sub, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`${wide
-        ? 'col-span-2 flex items-center gap-3 px-4 text-left'
-        : 'px-3 text-center'} py-3.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-600 hover:bg-neutral-800/60 transition active:scale-[0.98]`}
+      className="px-3 py-3.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-600 hover:bg-neutral-800/60 transition active:scale-[0.98] text-center"
     >
-      <span className={`${wide ? '' : 'mx-auto mb-1.5'} text-neutral-400`}>
+      <span className="mx-auto mb-1.5 flex justify-center text-neutral-400">
         <Icon name={icon} className="w-5 h-5" />
       </span>
-      <span>
-        <span className="block text-sm font-semibold text-neutral-100">{title}</span>
-        <span className="block text-xs text-neutral-500 mt-0.5">{sub}</span>
-      </span>
+      <span className="block text-sm font-semibold text-neutral-100">{title}</span>
+      <span className="block text-xs text-neutral-500 mt-0.5">{sub}</span>
     </button>
   );
 }

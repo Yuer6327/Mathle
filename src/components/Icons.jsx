@@ -49,6 +49,14 @@ const paths = {
       <path d="M10 20v-5h4v5" />
     </>
   ),
+  doorIn: (
+    <>
+      <path d="M4 11.5L12 4l8 7.5" />
+      <path d="M6 10.5V20h12v-9.5" />
+      <path d="M12 20v-4" />
+      <path d="M9.5 13.5l3-3M12.5 10.5H9.5v3" />
+    </>
+  ),
   bulb: (
     <>
       <path d="M9.5 18h5M10.5 21h3" />
