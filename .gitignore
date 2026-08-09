@@ -5,3 +5,7 @@ dist/
 server/.env
 *.local
 .DS_Store
+
+# Claude Code 本地配置
+.claude/
+CLAUDE.md
