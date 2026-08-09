@@ -1,15 +1,17 @@
 // 等式生成器
 // 根据难度生成包含隐藏槽位的数学等式
-// 难度（整体上调后）：
-//   入门 = 原中等：sqrt / 幂 / 取模 / 乘减
-//   简单 = 原困难：sin / cos+log / sin+乘
-//   中等 = 原极难：sin(pi÷2)+sqrt× / cos(0)+sqrt+log / 幂和
-//   困难 = 新增：带幂的较长表达式（题干翻倍，约 15-19 槽）
-//   极难 = 新增：超长表达式（题干翻 3 倍，约 27-39 槽）
 //
-// 幂（含“平方”）：指数不固定为 2/3，会在难度对应的集合（如 2/3/4、2-5）中变化，
+// 难度设计（槽位数量严格递增，符号池也是上一档的超集，只增不减）：
+//   入门  beginner: 5-8  槽，sqrt/幂/取模/乘减，符号池最小
+//   简单  easy:     7-11 槽，引入 pi / ÷ / sin / cos / log
+//   中等  medium:   10-21 槽，引入 tan，函数+幂组合
+//   困难  hard:     20-31 槽，引入 e / ln，多段长式（4-7 个幂项）
+//   极难  expert:   30-45 槽，引入 abs，超长组合式（5-8 个幂项）
+//
+// 幂指数不固定为 2/3：会在难度对应的集合（简单/中等 2/3/4、困难 2-4、极难 2-5）中变化，
 //   以增加生成式子多样性；指数仍是单个数字槽（^ 与数字都在对应难度的符号池里，保证可猜）。
 // 数字一律拆成单个数字槽位（含表达式内的多位数），保证每个槽位只占一个可猜符号。
+// generateEquation 会按 SLOT_RANGES 重试，保证命中各难度槽位数范围。
 
 import { createRNG, makeRNGHelpers } from './seededRandom.js';
 import { evaluate } from './evaluator.js';
@@ -35,6 +37,44 @@ function expandNumber(t) {
   }
   return [t];
 }
+
+// ─── 可复用片段（每次调用都新建 token，避免跨等式共享状态）───
+// 特殊角函数值：sin(pi÷2)=1, sin(0)=0, sin(pi)=0, cos(0)=1, cos(pi÷2)=0, cos(pi)=-1,
+//               tan(pi÷4)=1, tan(0)=0；log 以 10 为底；ln 以 e 为底
+const sinHalf = () => [tok('function','sin'), tok('lparen','(',false), tok('number','pi'), tok('operator','÷'), tok('number','2'), tok('rparen',')',false)];
+const sinZero = () => [tok('function','sin'), tok('lparen','(',false), tok('number','0'), tok('rparen',')',false)];
+const sinPi   = () => [tok('function','sin'), tok('lparen','(',false), tok('number','pi'), tok('rparen',')',false)];
+const cosZero = () => [tok('function','cos'), tok('lparen','(',false), tok('number','0'), tok('rparen',')',false)];
+const cosHalf = () => [tok('function','cos'), tok('lparen','(',false), tok('number','pi'), tok('operator','÷'), tok('number','2'), tok('rparen',')',false)];
+const cosPi   = () => [tok('function','cos'), tok('lparen','(',false), tok('number','pi'), tok('rparen',')',false)];
+const tanZero = () => [tok('function','tan'), tok('lparen','(',false), tok('number','0'), tok('rparen',')',false)];
+const tanQuarter = () => [tok('function','tan'), tok('lparen','(',false), tok('number','pi'), tok('operator','÷'), tok('number','4'), tok('rparen',')',false)];
+const sqrtOf  = (a) => [tok('function','sqrt'), tok('lparen','(',false), tok('number',String(a)), tok('rparen',')',false)];
+const logOf   = (n) => [tok('function','log'), tok('lparen','(',false), tok('number',String(n)), tok('rparen',')',false)];
+const lnOf    = (n) => [tok('function','ln'), tok('lparen','(',false), tok('number',String(n)), tok('rparen',')',false)];
+const absSub  = (a, b) => [tok('function','abs'), tok('lparen','(',false), tok('number',String(a)), tok('operator','-'), tok('number',String(b)), tok('rparen',')',false)];
+const powTerm = (base, exp) => [tok('number',String(base)), tok('operator','^'), tok('number',String(exp))];
+const ePow0   = () => powTerm('e', '0'); // e^0=1
+
+// 连续 pow 项（base^exp 用 + 连接，n 个）：返回 { tokens, sum }
+function powRun(rng, n, bmin, bmax, expPool) {
+  const { int, pick } = rng;
+  const tokens = [];
+  let sum = 0;
+  for (let i = 0; i < n; i++) {
+    if (i > 0) tokens.push(tok('operator', '+'));
+    const b = int(bmin, bmax);
+    const e = pick(expPool);
+    tokens.push(...powTerm(b, e));
+    sum += Math.pow(b, e);
+  }
+  return { tokens, sum };
+}
+
+const SQUARES = [0, 1, 4, 9, 16, 25, 36, 49, 64, 81, 100];
+const BIG_SQUARES = [4, 9, 16, 25, 36, 49, 64, 81, 100]; // 困难/极难避免 √0/√1
+const HARD_EXP = [2, 2, 3, 3, 4];
+const EXPERT_EXP = [2, 2, 3, 3, 4, 5];
 
 // ─── 难度模板 ───
 
@@ -102,423 +142,298 @@ function genBeginner(rng) {
   }
 }
 
-// 简单: sin(a)+b=c / cos(a)+log(b)=c / sin(a)+b×c=d
+// 简单: 7-11 槽。特殊角 sin/cos + log + 简单运算
+//   sin(pi÷2)+a+b=c / sin(pi÷2)+a×b=c / sin(0)+a×b+c=d / sin(pi)+a×b+c=d
+//   cos(0)+log(10)+a=b / cos(pi÷2)+log(100)=c / cos(pi)+log(1000)=c
+//   sin(0)+log(10)+a×b=c / sqrt(a)+log(100)=c / cos(0)+sin(pi÷2)+a=b
 function genEasy(rng) {
   const { int, pick } = rng;
-  const template = pick(['sin', 'coslog', 'sinmul']);
-  switch (template) {
-    case 'sin': {
-      // 用特殊角度: 0 → sin=0, pi/2 → sin=1, pi → sin=0
-      const angles = [
-        { tokens: [tok('number', '0')], sinVal: 0 },
-        { tokens: [tok('number', 'pi'), tok('operator', '÷'), tok('number', '2')], sinVal: 1 },
-        { tokens: [tok('number', 'pi')], sinVal: 0 }
-      ];
-      const ang = pick(angles);
-      const b = int(1, 9);
-      const c = ang.sinVal + b;
-      return buildEquation([
-        tok('function', 'sin'),
-        tok('lparen', '(', false),
-        ...ang.tokens,
-        tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('number', String(b))
-      ], c);
-    }
-    case 'coslog': {
-      // cos(0)=1, cos(pi÷2)=0, cos(pi)=-1
-      // log(10)=1, log(100)=2, log(1000)=3
-      const cosAngles = [
-        { tokens: [tok('number', '0')], cosVal: 1 },
-        { tokens: [tok('number', 'pi'), tok('operator', '÷'), tok('number', '2')], cosVal: 0 },
-        { tokens: [tok('number', 'pi')], cosVal: -1 }
-      ];
-      const logArgs = [
-        { tokens: [tok('number', '10')], logVal: 1 },
-        { tokens: [tok('number', '100')], logVal: 2 },
-        { tokens: [tok('number', '1000')], logVal: 3 }
-      ];
-      const ca = pick(cosAngles);
-      const la = pick(logArgs);
-      const c = ca.cosVal + la.logVal;
-      if (c < 0) return genEasy(rng); // 重试
-      return buildEquation([
-        tok('function', 'cos'),
-        tok('lparen', '(', false),
-        ...ca.tokens,
-        tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('function', 'log'),
-        tok('lparen', '(', false),
-        ...la.tokens,
-        tok('rparen', ')', false)
-      ], c);
-    }
-    case 'sinmul': {
-      const angles = [
-        { tokens: [tok('number', '0')], sinVal: 0 },
-        { tokens: [tok('number', 'pi'), tok('operator', '÷'), tok('number', '2')], sinVal: 1 },
-        { tokens: [tok('number', 'pi')], sinVal: 0 }
-      ];
-      const ang = pick(angles);
-      const b = int(1, 9);
-      const c = int(1, 9);
-      const d = ang.sinVal + b * c;
-      return buildEquation([
-        tok('function', 'sin'),
-        tok('lparen', '(', false),
-        ...ang.tokens,
-        tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('number', String(b)),
-        tok('operator', '×'),
-        tok('number', String(c))
-      ], d);
-    }
-  }
-}
-
-// 中等: sin(pi÷2)+sqrt(a)×b=c / cos(0)+sqrt(a)+log(b)=c / a²+b²=c
-function genMedium(rng) {
-  const { int, pick } = rng;
-  const template = pick(['sinsqrtmul', 'cossqrtlog', 'powpow']);
-  switch (template) {
-    case 'sinsqrtmul': {
-      // sin(pi÷2)=1 → 1 + sqrt(a)×b
-      const squares = [0, 1, 4, 9, 16, 25, 36, 49, 64, 81, 100];
-      const a = pick(squares);
-      const root = Math.sqrt(a);
-      const b = int(1, 9);
-      const c = 1 + root * b;
-      return buildEquation([
-        tok('function', 'sin'),
-        tok('lparen', '(', false),
-        tok('number', 'pi'),
-        tok('operator', '÷'),
-        tok('number', '2'),
-        tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('function', 'sqrt'),
-        tok('lparen', '(', false),
-        tok('number', String(a)),
-        tok('rparen', ')', false),
-        tok('operator', '×'),
-        tok('number', String(b))
-      ], c);
-    }
-    case 'cossqrtlog': {
-      // cos(0)=1 → 1 + sqrt(a) + log(b)
-      const squares = [0, 1, 4, 9, 16, 25, 36, 49, 64, 81, 100];
-      const a = pick(squares);
-      const root = Math.sqrt(a);
-      const logArgs = [
-        { tokens: [tok('number', '10')], logVal: 1 },
-        { tokens: [tok('number', '100')], logVal: 2 },
-        { tokens: [tok('number', '1000')], logVal: 3 }
-      ];
-      const la = pick(logArgs);
-      const c = 1 + root + la.logVal;
-      return buildEquation([
-        tok('function', 'cos'),
-        tok('lparen', '(', false),
-        tok('number', '0'),
-        tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('function', 'sqrt'),
-        tok('lparen', '(', false),
-        tok('number', String(a)),
-        tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('function', 'log'),
-        tok('lparen', '(', false),
-        ...la.tokens,
-        tok('rparen', ')', false)
-      ], c);
-    }
-    case 'powpow': {
-      // a^x + b^y = c（“平方和”推广：指数可在 2/3/4 中变化，仍可猜：^ 与单个数字槽）
-      const a = int(2, 4);
-      const b = int(2, 4);
-      const x = pick([2, 2, 3, 4]);
-      const y = pick([2, 2, 3, 4]);
-      const c = Math.pow(a, x) + Math.pow(b, y);
-      return buildEquation([
-        tok('number', String(a)),
-        tok('operator', '^'),
-        tok('number', String(x)),
-        tok('operator', '+'),
-        tok('number', String(b)),
-        tok('operator', '^'),
-        tok('number', String(y))
-      ], c);
-    }
-  }
-}
-
-// 困难: 题干翻倍（约 15-19 槽），多段式长表达式，幂指数在 2/3/4 中变化
-//   a^w+b^x+c^y+d^z=e
-//   a^p+b^q+c^r+d=e
-//   a^p×b+c^q+d^r=e
-//   sqrt(a)+b^p+c^q+d^r=e
-function genHard(rng) {
-  const { int, pick } = rng;
-  const squares = [4, 9, 16, 25, 36, 49, 64, 81, 100];
-  const template = pick(['quad_pow', 'cube_sq_sq', 'pow_mul_sq_sq', 'sqrt_sq_cube_sq']);
-  switch (template) {
-    case 'quad_pow': {
-      // a^w + b^x + c^y + d^z = e（四项幂，指数各自在 2/3/4 中变化）
-      const a = int(2, 4);
-      const b = int(2, 4);
-      const c = int(2, 4);
-      const d = int(2, 4);
-      const w = pick([2, 2, 3, 3, 4]);
-      const x = pick([2, 2, 3, 3, 4]);
-      const y = pick([2, 2, 3, 3, 4]);
-      const z = pick([2, 2, 3, 3, 4]);
-      const total = Math.pow(a, w) + Math.pow(b, x) + Math.pow(c, y) + Math.pow(d, z);
-      return buildEquation([
-        tok('number', String(a)), tok('operator', '^'), tok('number', String(w)),
-        tok('operator', '+'),
-        tok('number', String(b)), tok('operator', '^'), tok('number', String(x)),
-        tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', String(y)),
-        tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', String(z))
-      ], total);
-    }
-    case 'cube_sq_sq': {
-      // a^p + b^q + c^r + d = e（指数在 2/3/4 中变化）
-      const a = int(2, 4);
-      const b = int(2, 4);
-      const c = int(2, 4);
-      const d = int(1, 9);
-      const p = pick([2, 2, 3, 3, 4]);
-      const q = pick([2, 2, 3, 3, 4]);
-      const r = pick([2, 2, 3, 3, 4]);
-      const total = Math.pow(a, p) + Math.pow(b, q) + Math.pow(c, r) + d;
-      return buildEquation([
-        tok('number', String(a)), tok('operator', '^'), tok('number', String(p)),
-        tok('operator', '+'),
-        tok('number', String(b)), tok('operator', '^'), tok('number', String(q)),
-        tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', String(r)),
-        tok('operator', '+'),
-        tok('number', String(d))
-      ], total);
-    }
-    case 'pow_mul_sq_sq': {
-      // a^p × b + c^q + d^r = e（指数在 2/3/4 中变化）
-      const a = int(2, 4);
-      const b = int(2, 4);
-      const c = int(2, 4);
-      const d = int(2, 4);
-      const p = pick([2, 2, 3, 3, 4]);
-      const q = pick([2, 2, 3, 3, 4]);
-      const r = pick([2, 2, 3, 3, 4]);
-      const total = Math.pow(a, p) * b + Math.pow(c, q) + Math.pow(d, r);
-      return buildEquation([
-        tok('number', String(a)), tok('operator', '^'), tok('number', String(p)),
-        tok('operator', '×'),
-        tok('number', String(b)),
-        tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', String(q)),
-        tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', String(r))
-      ], total);
-    }
-    case 'sqrt_sq_cube_sq': {
-      // sqrt(a) + b^p + c^q + d^r = e（指数在 2/3/4 中变化）
-      const a = pick(squares);
-      const root = Math.sqrt(a);
-      const b = int(2, 4);
-      const c = int(2, 4);
-      const d = int(2, 4);
-      const p = pick([2, 2, 3, 3, 4]);
-      const q = pick([2, 2, 3, 3, 4]);
-      const r = pick([2, 2, 3, 3, 4]);
-      const total = root + Math.pow(b, p) + Math.pow(c, q) + Math.pow(d, r);
-      return buildEquation([
-        tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(a)), tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('number', String(b)), tok('operator', '^'), tok('number', String(p)),
-        tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', String(q)),
-        tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', String(r))
-      ], total);
-    }
-  }
-}
-
-// 极难: 题干翻 3 倍（约 27-39 槽），多段超长表达式，幂指数在 2-5 中变化
-//   sin(pi÷2)+cos(0)+log(1000)+sqrt(a)+b^p+c^q+d^r=e
-//   sin(pi÷2)×sqrt(a)+cos(0)×sqrt(b)+c^p+d^q+e^r=f
-//   a^p+b^q+c^r+d^s+e^t+f^u+g^v=h
-//   sin(pi÷2)+sqrt(a)+log(1000)+b^p+c^q+d^r+e^s=f
-//   sin(pi÷2)+cos(0)+log(1000)+sqrt(a)+b^p+c^q+d^r+e^s+f=g
-function genExpert(rng) {
-  const { int, pick } = rng;
-  const squares = [4, 9, 16, 25, 36, 49, 64, 81, 100];
+  const one9 = () => int(1, 9);
   const template = pick([
-    'sin_cos_log_sqrt_sq',
-    'sin_sqrt_cos_sqrt_sq',
-    'cube_sq_cube_sq_cube_sq_sq',
-    'sin_sqrt_log_cube_sq_cube_sq',
-    'sin_cos_log_sqrt_cube_sq_cube_sq_sq'
+    'sin_half_add2', 'sin_half_mul', 'sin_zero_mul_add', 'sin_pi_mul_add',
+    'cos_zero_log10_add', 'cos_half_log100', 'cos_pi_log1000',
+    'sin_zero_log10_mul', 'sqrt_log100', 'cos_zero_sin_half_add'
   ]);
   switch (template) {
-    case 'sin_cos_log_sqrt_sq': {
-      // sin(pi÷2)=1, cos(0)=1, log(1000)=3；b/c/d 的指数可在 2-5 中变化
-      const a = pick(squares);
-      const root = Math.sqrt(a);
-      const b = int(2, 3);
-      const c = int(2, 3);
-      const d = int(2, 3);
-      const p = pick([2, 2, 3, 3, 4, 5]);
-      const q = pick([2, 2, 3, 3, 4, 5]);
-      const r = pick([2, 2, 3, 3, 4, 5]);
-      const total = 1 + 1 + 3 + root + Math.pow(b, p) + Math.pow(c, q) + Math.pow(d, r);
-      return buildEquation([
-        tok('function', 'sin'), tok('lparen', '(', false), tok('number', 'pi'), tok('operator', '÷'), tok('number', '2'), tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('function', 'cos'), tok('lparen', '(', false), tok('number', '0'), tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('function', 'log'), tok('lparen', '(', false), tok('number', '1000'), tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(a)), tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('number', String(b)), tok('operator', '^'), tok('number', String(p)),
-        tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', String(q)),
-        tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', String(r))
-      ], total);
+    case 'sin_half_add2': { // sin(pi÷2)+a+b=c → 1+a+b
+      const a = one9(), b = one9();
+      return buildEquation([...sinHalf(), tok('operator','+'), tok('number',String(a)), tok('operator','+'), tok('number',String(b))], 1 + a + b);
     }
-    case 'sin_sqrt_cos_sqrt_sq': {
-      // sin(pi÷2)×sqrt(a)=sqrt(a), cos(0)×sqrt(b)=sqrt(b)；c/d/e 的指数可在 2-5 中变化
-      const a = pick(squares);
-      const rootA = Math.sqrt(a);
-      const b = pick(squares);
-      const rootB = Math.sqrt(b);
-      const c = int(2, 3);
-      const d = int(2, 3);
-      const e = int(2, 3);
-      const p = pick([2, 2, 3, 3, 4, 5]);
-      const q = pick([2, 2, 3, 3, 4, 5]);
-      const r = pick([2, 2, 3, 3, 4, 5]);
-      const total = rootA + rootB + Math.pow(c, p) + Math.pow(d, q) + Math.pow(e, r);
-      return buildEquation([
-        tok('function', 'sin'), tok('lparen', '(', false), tok('number', 'pi'), tok('operator', '÷'), tok('number', '2'), tok('rparen', ')', false),
-        tok('operator', '×'),
-        tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(a)), tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('function', 'cos'), tok('lparen', '(', false), tok('number', '0'), tok('rparen', ')', false),
-        tok('operator', '×'),
-        tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(b)), tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', String(p)),
-        tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', String(q)),
-        tok('operator', '+'),
-        tok('number', String(e)), tok('operator', '^'), tok('number', String(r))
-      ], total);
+    case 'sin_half_mul': { // sin(pi÷2)+a×b=c → 1+a×b
+      const a = one9(), b = one9();
+      return buildEquation([...sinHalf(), tok('operator','+'), tok('number',String(a)), tok('operator','×'), tok('number',String(b))], 1 + a * b);
     }
-    case 'cube_sq_cube_sq_cube_sq_sq': {
-      // 7 个幂项；a/c/e（原立方槽）指数 2-4，b/d/f/g（原平方槽）指数 2-5
-      const a = int(2, 3);
-      const b = int(2, 3);
-      const c = int(2, 3);
-      const d = int(2, 3);
-      const e = int(2, 3);
-      const f = int(2, 3);
-      const g = int(2, 3);
-      const p = pick([2, 2, 3, 3, 4]);
-      const q = pick([2, 2, 3, 3, 4, 5]);
-      const r = pick([2, 2, 3, 3, 4]);
-      const s = pick([2, 2, 3, 3, 4, 5]);
-      const t = pick([2, 2, 3, 3, 4]);
-      const u = pick([2, 2, 3, 3, 4, 5]);
-      const v = pick([2, 2, 3, 3, 4, 5]);
-      const total = Math.pow(a, p) + Math.pow(b, q) + Math.pow(c, r) + Math.pow(d, s) + Math.pow(e, t) + Math.pow(f, u) + Math.pow(g, v);
-      return buildEquation([
-        tok('number', String(a)), tok('operator', '^'), tok('number', String(p)),
-        tok('operator', '+'),
-        tok('number', String(b)), tok('operator', '^'), tok('number', String(q)),
-        tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', String(r)),
-        tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', String(s)),
-        tok('operator', '+'),
-        tok('number', String(e)), tok('operator', '^'), tok('number', String(t)),
-        tok('operator', '+'),
-        tok('number', String(f)), tok('operator', '^'), tok('number', String(u)),
-        tok('operator', '+'),
-        tok('number', String(g)), tok('operator', '^'), tok('number', String(v))
-      ], total);
+    case 'sin_zero_mul_add': { // sin(0)+a×b+c=d → a×b+c
+      const a = one9(), b = one9(), c = one9();
+      return buildEquation([...sinZero(), tok('operator','+'), tok('number',String(a)), tok('operator','×'), tok('number',String(b)), tok('operator','+'), tok('number',String(c))], a * b + c);
     }
-    case 'sin_sqrt_log_cube_sq_cube_sq': {
-      // sin(pi÷2)=1, log(1000)=3；b/d（立方槽）指数 2-4，c/e（平方槽）指数 2-5
-      const a = pick(squares);
-      const root = Math.sqrt(a);
-      const b = int(2, 3);
-      const c = int(2, 3);
-      const d = int(2, 3);
-      const e = int(2, 3);
-      const p = pick([2, 2, 3, 3, 4]);
-      const q = pick([2, 2, 3, 3, 4, 5]);
-      const r = pick([2, 2, 3, 3, 4]);
-      const s = pick([2, 2, 3, 3, 4, 5]);
-      const total = 1 + root + 3 + Math.pow(b, p) + Math.pow(c, q) + Math.pow(d, r) + Math.pow(e, s);
-      return buildEquation([
-        tok('function', 'sin'), tok('lparen', '(', false), tok('number', 'pi'), tok('operator', '÷'), tok('number', '2'), tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(a)), tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('function', 'log'), tok('lparen', '(', false), tok('number', '1000'), tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('number', String(b)), tok('operator', '^'), tok('number', String(p)),
-        tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', String(q)),
-        tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', String(r)),
-        tok('operator', '+'),
-        tok('number', String(e)), tok('operator', '^'), tok('number', String(s))
-      ], total);
+    case 'sin_pi_mul_add': { // sin(pi)+a×b+c=d → a×b+c
+      const a = one9(), b = one9(), c = one9();
+      return buildEquation([...sinPi(), tok('operator','+'), tok('number',String(a)), tok('operator','×'), tok('number',String(b)), tok('operator','+'), tok('number',String(c))], a * b + c);
     }
-    case 'sin_cos_log_sqrt_cube_sq_cube_sq_sq': {
-      // sin(pi÷2)=1, cos(0)=1, log(1000)=3；b/d（立方槽）指数 2-4，c/e（平方槽）指数 2-5
-      const a = pick(squares);
-      const root = Math.sqrt(a);
-      const b = int(2, 3);
-      const c = int(2, 3);
-      const d = int(2, 3);
-      const e = int(2, 3);
-      const f = int(1, 9);
-      const p = pick([2, 2, 3, 3, 4]);
-      const q = pick([2, 2, 3, 3, 4, 5]);
-      const r = pick([2, 2, 3, 3, 4]);
-      const s = pick([2, 2, 3, 3, 4, 5]);
-      const total = 1 + 1 + 3 + root + Math.pow(b, p) + Math.pow(c, q) + Math.pow(d, r) + Math.pow(e, s) + f;
-      return buildEquation([
-        tok('function', 'sin'), tok('lparen', '(', false), tok('number', 'pi'), tok('operator', '÷'), tok('number', '2'), tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('function', 'cos'), tok('lparen', '(', false), tok('number', '0'), tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('function', 'log'), tok('lparen', '(', false), tok('number', '1000'), tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(a)), tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('number', String(b)), tok('operator', '^'), tok('number', String(p)),
-        tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', String(q)),
-        tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', String(r)),
-        tok('operator', '+'),
-        tok('number', String(e)), tok('operator', '^'), tok('number', String(s)),
-        tok('operator', '+'),
-        tok('number', String(f))
-      ], total);
+    case 'cos_zero_log10_add': { // cos(0)+log(10)+a=b → 2+a
+      const a = one9();
+      return buildEquation([...cosZero(), tok('operator','+'), ...logOf(10), tok('operator','+'), tok('number',String(a))], 2 + a);
+    }
+    case 'cos_half_log100': { // cos(pi÷2)+log(100)=c → 2
+      return buildEquation([...cosHalf(), tok('operator','+'), ...logOf(100)], 2);
+    }
+    case 'cos_pi_log1000': { // cos(pi)+log(1000)=c → 2
+      return buildEquation([...cosPi(), tok('operator','+'), ...logOf(1000)], 2);
+    }
+    case 'sin_zero_log10_mul': { // sin(0)+log(10)+a×b=c → 1+a×b
+      const a = one9(), b = one9();
+      return buildEquation([...sinZero(), tok('operator','+'), ...logOf(10), tok('operator','+'), tok('number',String(a)), tok('operator','×'), tok('number',String(b))], 1 + a * b);
+    }
+    case 'sqrt_log100': { // sqrt(a)+log(100)=c → √a+2
+      const a = pick(SQUARES);
+      return buildEquation([...sqrtOf(a), tok('operator','+'), ...logOf(100)], Math.sqrt(a) + 2);
+    }
+    case 'cos_zero_sin_half_add': { // cos(0)+sin(pi÷2)+a=b → 2+a
+      const a = one9();
+      return buildEquation([...cosZero(), tok('operator','+'), ...sinHalf(), tok('operator','+'), tok('number',String(a))], 2 + a);
+    }
+  }
+}
+
+// 中等: 10-21 槽。引入 tan，函数片段 + 幂组合
+//   sin(pi÷2)+sqrt(a)×b+c=d / cos(0)+log(1000)+sqrt(a)+b=c / tan(pi÷4)+sqrt(a)+b×c=d
+//   tan(0)+sin(pi÷2)+a+b+c=d / a^x+b^y+c+d+e=f / a^x×b+c^y+d=e
+//   sin(pi÷2)+cos(0)+a^x+b=c / sin(0)+cos(pi)+a×b+c+d=e / sqrt(a)+log(100)+b×c=d
+//   sqrt(a)+log(1000)+b^c=d
+function genMedium(rng) {
+  const { int, pick } = rng;
+  const one9 = () => int(1, 9);
+  const base = () => int(2, 5);
+  const exp = () => pick([2, 2, 3, 4]);
+  const template = pick([
+    'sin_sqrt_mul_add', 'cos_log_sqrt_add', 'tan_sqrt_mul', 'tan_sin_adds',
+    'pow_pow_adds', 'pow_mul_pow_add', 'sin_cos_pow_add',
+    'sin_cos_pow_mul', 'sqrt_log100_mul', 'sqrt_log1000_pow'
+  ]);
+  switch (template) {
+    case 'sin_sqrt_mul_add': { // sin(pi÷2)+sqrt(a)×b+c=d → 1+√a×b+c
+      const a = pick(SQUARES), b = one9(), c = one9();
+      return buildEquation([...sinHalf(), tok('operator','+'), ...sqrtOf(a), tok('operator','×'), tok('number',String(b)), tok('operator','+'), tok('number',String(c))], 1 + Math.sqrt(a) * b + c);
+    }
+    case 'cos_log_sqrt_add': { // cos(0)+log(1000)+sqrt(a)+b=c → 4+√a+b
+      const a = pick(SQUARES), b = one9();
+      return buildEquation([...cosZero(), tok('operator','+'), ...logOf(1000), tok('operator','+'), ...sqrtOf(a), tok('operator','+'), tok('number',String(b))], 4 + Math.sqrt(a) + b);
+    }
+    case 'tan_sqrt_mul': { // tan(pi÷4)+sqrt(a)+b×c=d → 1+√a+b×c
+      const a = pick(SQUARES), b = one9(), c = one9();
+      return buildEquation([...tanQuarter(), tok('operator','+'), ...sqrtOf(a), tok('operator','+'), tok('number',String(b)), tok('operator','×'), tok('number',String(c))], 1 + Math.sqrt(a) + b * c);
+    }
+    case 'tan_sin_adds': { // tan(0)+sin(pi÷2)+a+b+c=d → 1+a+b+c
+      const a = one9(), b = one9(), c = one9();
+      return buildEquation([...tanZero(), tok('operator','+'), ...sinHalf(), tok('operator','+'), tok('number',String(a)), tok('operator','+'), tok('number',String(b)), tok('operator','+'), tok('number',String(c))], 1 + a + b + c);
+    }
+    case 'pow_pow_adds': { // a^x+b^y+c+d+e=f
+      const a = base(), x = exp(), b = base(), y = exp(), c = one9(), d = one9(), e = one9();
+      return buildEquation(
+        [...powTerm(a, x), tok('operator','+'), ...powTerm(b, y), tok('operator','+'), tok('number',String(c)), tok('operator','+'), tok('number',String(d)), tok('operator','+'), tok('number',String(e))],
+        Math.pow(a, x) + Math.pow(b, y) + c + d + e
+      );
+    }
+    case 'pow_mul_pow_add': { // a^x×b+c^y+d=e
+      const a = base(), x = exp(), b = one9(), c = base(), y = exp(), d = one9();
+      return buildEquation(
+        [...powTerm(a, x), tok('operator','×'), tok('number',String(b)), tok('operator','+'), ...powTerm(c, y), tok('operator','+'), tok('number',String(d))],
+        Math.pow(a, x) * b + Math.pow(c, y) + d
+      );
+    }
+    case 'sin_cos_pow_add': { // sin(pi÷2)+cos(0)+a^x+b=c → 2+a^x+b
+      const a = base(), x = exp(), b = one9();
+      return buildEquation([...sinHalf(), tok('operator','+'), ...cosZero(), tok('operator','+'), ...powTerm(a, x), tok('operator','+'), tok('number',String(b))], 2 + Math.pow(a, x) + b);
+    }
+    case 'sin_cos_pow_mul': { // sin(0)+cos(pi)+a×b+c+d=e → a×b+c+d-1
+      const a = one9(), b = one9(), c = one9(), d = one9();
+      return buildEquation([...sinZero(), tok('operator','+'), ...cosPi(), tok('operator','+'), tok('number',String(a)), tok('operator','×'), tok('number',String(b)), tok('operator','+'), tok('number',String(c)), tok('operator','+'), tok('number',String(d))], a * b + c + d - 1);
+    }
+    case 'sqrt_log100_mul': { // sqrt(a)+log(100)+b×c=d → √a+2+b×c
+      const a = pick(SQUARES), b = one9(), c = one9();
+      return buildEquation([...sqrtOf(a), tok('operator','+'), ...logOf(100), tok('operator','+'), tok('number',String(b)), tok('operator','×'), tok('number',String(c))], Math.sqrt(a) + 2 + b * c);
+    }
+    case 'sqrt_log1000_pow': { // sqrt(a)+log(1000)+b^c=d → √a+3+b^c
+      const a = pick(SQUARES), b = base(), c = exp();
+      return buildEquation([...sqrtOf(a), tok('operator','+'), ...logOf(1000), tok('operator','+'), ...powTerm(b, c)], Math.sqrt(a) + 3 + Math.pow(b, c));
+    }
+  }
+}
+
+// 困难: 20-31 槽。引入 e / ln，多段长式（4-7 个幂项），幂指数 2-4
+//   sin(pi÷2)+cos(0)+ln(e)+a^p+b^q+c^r+d^s=e
+//   ln(1)+e^0+sin(pi÷2)+a^p+b^q+c^r+d^s=e
+//   sqrt(a)+log(1000)+e^0+b^p+c^q+d^r+e^s=f
+//   tan(pi÷4)+sin(pi÷2)×sqrt(a)+b^p+c^q+d^r=e
+//   a^p×b+c^q+d^r+e^s+f^t+g^u=h
+//   ln(e)+sqrt(a)+sqrt(b)+c^p+d^q+e^r+f^s=g
+//   cos(0)+sin(0)+tan(0)+e^0+a^p+b^q+c^r=d
+//   sqrt(a)+sqrt(b)+log(100)+c^p+d^q+e^r+f^s=g
+//   a^p+b^q+c^r+d^s+e^t+f^u+g^v=h
+//   sin(pi÷2)×sqrt(a)+cos(0)×sqrt(b)+ln(e)+c^p+d^q=e
+//   e^0+ln(1)+a^p+b^q+c^r+d^s+e^t=f
+//   sqrt(a)+sin(pi÷2)+log(1000)+b^p+c^q+d^r=e
+function genHard(rng) {
+  const { int, pick } = rng;
+  const one9 = () => int(1, 9);
+  const template = pick([
+    'sin_cos_ln_pows4', 'ln1_e0_sin_pows4', 'sqrt_log_e0_pows4',
+    'tan_sin_sqrt_pows3', 'powmul_pows5', 'ln_sqrt_sqrt_pows4',
+    'cos_sin_tan_e0_pows3', 'sqrt_sqrt_log_pows4', 'pows7',
+    'sin_sqrt_cos_sqrt_ln_pows2', 'e0_ln1_pows5', 'sqrt_sin_log_pows3'
+  ]);
+  switch (template) {
+    case 'sin_cos_ln_pows4': { // 3+sum4
+      const pc = powRun(rng, 4, 2, 5, HARD_EXP);
+      return buildEquation([...sinHalf(), tok('operator','+'), ...cosZero(), tok('operator','+'), ...lnOf('e'), tok('operator','+'), ...pc.tokens], 3 + pc.sum);
+    }
+    case 'ln1_e0_sin_pows4': { // 0+1+1+sum4 = 2+sum4
+      const pc = powRun(rng, 4, 2, 5, HARD_EXP);
+      return buildEquation([...lnOf(1), tok('operator','+'), ...ePow0(), tok('operator','+'), ...sinHalf(), tok('operator','+'), ...pc.tokens], 2 + pc.sum);
+    }
+    case 'sqrt_log_e0_pows4': { // √a+3+1+sum4 = √a+4+sum4
+      const a = pick(BIG_SQUARES);
+      const pc = powRun(rng, 4, 2, 5, HARD_EXP);
+      return buildEquation([...sqrtOf(a), tok('operator','+'), ...logOf(1000), tok('operator','+'), ...ePow0(), tok('operator','+'), ...pc.tokens], Math.sqrt(a) + 4 + pc.sum);
+    }
+    case 'tan_sin_sqrt_pows3': { // 1+√a+sum3
+      const a = pick(BIG_SQUARES);
+      const pc = powRun(rng, 3, 2, 5, HARD_EXP);
+      return buildEquation([...tanQuarter(), tok('operator','+'), ...sinHalf(), tok('operator','×'), ...sqrtOf(a), tok('operator','+'), ...pc.tokens], 1 + Math.sqrt(a) + pc.sum);
+    }
+    case 'powmul_pows5': { // a^p×b+sum5
+      const a = int(2, 5), p = pick(HARD_EXP), b = one9();
+      const pc = powRun(rng, 5, 2, 5, HARD_EXP);
+      return buildEquation([...powTerm(a, p), tok('operator','×'), tok('number',String(b)), tok('operator','+'), ...pc.tokens], Math.pow(a, p) * b + pc.sum);
+    }
+    case 'ln_sqrt_sqrt_pows4': { // 1+√a+√b+sum4
+      const a = pick(BIG_SQUARES), b = pick(BIG_SQUARES);
+      const pc = powRun(rng, 4, 2, 5, HARD_EXP);
+      return buildEquation([...lnOf('e'), tok('operator','+'), ...sqrtOf(a), tok('operator','+'), ...sqrtOf(b), tok('operator','+'), ...pc.tokens], 1 + Math.sqrt(a) + Math.sqrt(b) + pc.sum);
+    }
+    case 'cos_sin_tan_e0_pows3': { // 1+0+0+1+sum3 = 2+sum3
+      const pc = powRun(rng, 3, 2, 5, HARD_EXP);
+      return buildEquation([...cosZero(), tok('operator','+'), ...sinZero(), tok('operator','+'), ...tanZero(), tok('operator','+'), ...ePow0(), tok('operator','+'), ...pc.tokens], 2 + pc.sum);
+    }
+    case 'sqrt_sqrt_log_pows4': { // √a+√b+2+sum4
+      const a = pick(BIG_SQUARES), b = pick(BIG_SQUARES);
+      const pc = powRun(rng, 4, 2, 5, HARD_EXP);
+      return buildEquation([...sqrtOf(a), tok('operator','+'), ...sqrtOf(b), tok('operator','+'), ...logOf(100), tok('operator','+'), ...pc.tokens], Math.sqrt(a) + Math.sqrt(b) + 2 + pc.sum);
+    }
+    case 'pows7': { // sum7
+      const pc = powRun(rng, 7, 2, 5, HARD_EXP);
+      return buildEquation([...pc.tokens], pc.sum);
+    }
+    case 'sin_sqrt_cos_sqrt_ln_pows2': { // √a+√b+1+sum2
+      const a = pick(BIG_SQUARES), b = pick(BIG_SQUARES);
+      const pc = powRun(rng, 2, 2, 5, HARD_EXP);
+      return buildEquation([...sinHalf(), tok('operator','×'), ...sqrtOf(a), tok('operator','+'), ...cosZero(), tok('operator','×'), ...sqrtOf(b), tok('operator','+'), ...lnOf('e'), tok('operator','+'), ...pc.tokens], Math.sqrt(a) + Math.sqrt(b) + 1 + pc.sum);
+    }
+    case 'e0_ln1_pows5': { // 1+0+sum5 = 1+sum5
+      const pc = powRun(rng, 5, 2, 5, HARD_EXP);
+      return buildEquation([...ePow0(), tok('operator','+'), ...lnOf(1), tok('operator','+'), ...pc.tokens], 1 + pc.sum);
+    }
+    case 'sqrt_sin_log_pows3': { // √a+1+3+sum3 = √a+4+sum3
+      const a = pick(BIG_SQUARES);
+      const pc = powRun(rng, 3, 2, 5, HARD_EXP);
+      return buildEquation([...sqrtOf(a), tok('operator','+'), ...sinHalf(), tok('operator','+'), ...logOf(1000), tok('operator','+'), ...pc.tokens], Math.sqrt(a) + 4 + pc.sum);
+    }
+  }
+}
+
+// 极难: 30-45 槽。引入 abs，超长组合式（5-8 个幂项），幂指数 2-5
+//   sin(pi÷2)+cos(0)+log(1000)+sqrt(a)+b^p+c^q+d^r+e^s+f^t+g^u=h
+//   sin(pi÷2)×sqrt(a)+cos(0)×sqrt(b)+tan(pi÷4)+c^p+d^q+e^r+f^s+g^t=h
+//   sqrt(a)+sqrt(b)+sqrt(c)+log(100)+d^p+e^q+f^r+g^s+h^t=i
+//   ln(e)+ln(1)+e^0+a^p+b^q+c^r+d^s+e^t+f^u+g^v+h^w=i
+//   abs(a-b)+sin(pi÷2)+cos(0)+c^p+d^q+e^r+f^s+g^t+h^u=i
+//   abs(a-b)+abs(c-d)+e^p+f^q+g^r+h^s+i^t+j^u+log(1000)=k
+//   sin(pi÷2)+tan(pi÷4)+log(1000)+sqrt(a)+sqrt(b)+c^p+d^q+e^r+f^s=g
+//   e^0+sin(pi)+cos(pi)+tan(0)+a^p+b^q+c^r+d^s+e^t+f^u+g^v=h
+//   sqrt(a)+sqrt(b)+sqrt(c)+sqrt(d)+log(1000)+ln(e)+e^p+f^q+g^r=h
+//   abs(a-b)×c+d^p+e^q+f^r+g^s+h^t+i^u+log(1000)=j
+//   sin(pi÷2)+cos(0)+log(1000)+sqrt(a)+b^p+c^q+d^r+e^s+f^t+g^u=h
+//   tan(pi÷4)+ln(e)+e^0+a^p+b^q+c^r+d^s+e^t+f^u+g^v=h
+//   sqrt(a)+log(1000)+abs(b-c)+d^p+e^q+f^r+g^s+h^t+i^u=j
+//   sin(pi÷2)+cos(0)+tan(pi÷4)+log(1000)+sqrt(a)+sqrt(b)+e^0+c^p+d^q=e
+function genExpert(rng) {
+  const { int, pick } = rng;
+  const one9 = () => int(1, 9);
+  const template = pick([
+    'sin_cos_log_sqrt_pows6', 'sin_sqrt_cos_sqrt_tan_pows5', 'sqrt3_log_pows5',
+    'lns_e0_pows8', 'abs_sin_cos_pows6', 'abs2_pows6_log',
+    'sin_tan_log_sqrt2_pows5', 'e0_sin_cos_tan_pows7', 'sqrt4_log_ln_pows3',
+    'absmul_pows6_log', 'sin_log_sqrt_pows7', 'tan_ln_e0_pows7',
+    'sqrt_log_abs_pows6', 'bigmix_pows2'
+  ]);
+  switch (template) {
+    case 'sin_cos_log_sqrt_pows6': { // 1+1+3+√a+sum6 = 5+√a+sum6
+      const a = pick(BIG_SQUARES);
+      const pc = powRun(rng, 6, 2, 4, EXPERT_EXP);
+      return buildEquation([...sinHalf(), tok('operator','+'), ...cosZero(), tok('operator','+'), ...logOf(1000), tok('operator','+'), ...sqrtOf(a), tok('operator','+'), ...pc.tokens], 5 + Math.sqrt(a) + pc.sum);
+    }
+    case 'sin_sqrt_cos_sqrt_tan_pows5': { // √a+√b+1+sum5
+      const a = pick(BIG_SQUARES), b = pick(BIG_SQUARES);
+      const pc = powRun(rng, 5, 2, 4, EXPERT_EXP);
+      return buildEquation([...sinHalf(), tok('operator','×'), ...sqrtOf(a), tok('operator','+'), ...cosZero(), tok('operator','×'), ...sqrtOf(b), tok('operator','+'), ...tanQuarter(), tok('operator','+'), ...pc.tokens], Math.sqrt(a) + Math.sqrt(b) + 1 + pc.sum);
+    }
+    case 'sqrt3_log_pows5': { // √a+√b+√c+2+sum5
+      const a = pick(BIG_SQUARES), b = pick(BIG_SQUARES), c = pick(BIG_SQUARES);
+      const pc = powRun(rng, 5, 2, 4, EXPERT_EXP);
+      return buildEquation([...sqrtOf(a), tok('operator','+'), ...sqrtOf(b), tok('operator','+'), ...sqrtOf(c), tok('operator','+'), ...logOf(100), tok('operator','+'), ...pc.tokens], Math.sqrt(a) + Math.sqrt(b) + Math.sqrt(c) + 2 + pc.sum);
+    }
+    case 'lns_e0_pows8': { // 1+0+1+sum8 = 2+sum8
+      const pc = powRun(rng, 8, 2, 4, EXPERT_EXP);
+      return buildEquation([...lnOf('e'), tok('operator','+'), ...lnOf(1), tok('operator','+'), ...ePow0(), tok('operator','+'), ...pc.tokens], 2 + pc.sum);
+    }
+    case 'abs_sin_cos_pows6': { // |a-b|+1+1+sum6 = |a-b|+2+sum6
+      const a = one9(), b = one9();
+      const pc = powRun(rng, 6, 2, 4, EXPERT_EXP);
+      return buildEquation([...absSub(a, b), tok('operator','+'), ...sinHalf(), tok('operator','+'), ...cosZero(), tok('operator','+'), ...pc.tokens], Math.abs(a - b) + 2 + pc.sum);
+    }
+    case 'abs2_pows6_log': { // |a-b|+|c-d|+sum6+3
+      const a = one9(), b = one9(), c = one9(), d = one9();
+      const pc = powRun(rng, 6, 2, 4, EXPERT_EXP);
+      return buildEquation([...absSub(a, b), tok('operator','+'), ...absSub(c, d), tok('operator','+'), ...pc.tokens, tok('operator','+'), ...logOf(1000)], Math.abs(a - b) + Math.abs(c - d) + pc.sum + 3);
+    }
+    case 'sin_tan_log_sqrt2_pows5': { // 1+1+3+√a+√b+sum5 = 5+√a+√b+sum5
+      const a = pick(BIG_SQUARES), b = pick(BIG_SQUARES);
+      const pc = powRun(rng, 5, 2, 4, EXPERT_EXP);
+      return buildEquation([...sinHalf(), tok('operator','+'), ...tanQuarter(), tok('operator','+'), ...logOf(1000), tok('operator','+'), ...sqrtOf(a), tok('operator','+'), ...sqrtOf(b), tok('operator','+'), ...pc.tokens], 5 + Math.sqrt(a) + Math.sqrt(b) + pc.sum);
+    }
+    case 'e0_sin_cos_tan_pows7': { // 1+0-1+0+sum7 = sum7
+      const pc = powRun(rng, 7, 2, 4, EXPERT_EXP);
+      return buildEquation([...ePow0(), tok('operator','+'), ...sinPi(), tok('operator','+'), ...cosPi(), tok('operator','+'), ...tanZero(), tok('operator','+'), ...pc.tokens], pc.sum);
+    }
+    case 'sqrt4_log_ln_pows3': { // √a+√b+√c+√d+3+1+sum3 = 4+√a+√b+√c+√d+sum3
+      const a = pick(BIG_SQUARES), b = pick(BIG_SQUARES), c = pick(BIG_SQUARES), d = pick(BIG_SQUARES);
+      const pc = powRun(rng, 3, 2, 4, EXPERT_EXP);
+      return buildEquation([...sqrtOf(a), tok('operator','+'), ...sqrtOf(b), tok('operator','+'), ...sqrtOf(c), tok('operator','+'), ...sqrtOf(d), tok('operator','+'), ...logOf(1000), tok('operator','+'), ...lnOf('e'), tok('operator','+'), ...pc.tokens], 4 + Math.sqrt(a) + Math.sqrt(b) + Math.sqrt(c) + Math.sqrt(d) + pc.sum);
+    }
+    case 'absmul_pows6_log': { // |a-b|×c+sum6+3
+      const a = one9(), b = one9(), c = one9();
+      const pc = powRun(rng, 6, 2, 4, EXPERT_EXP);
+      return buildEquation([...absSub(a, b), tok('operator','×'), tok('number',String(c)), tok('operator','+'), ...pc.tokens, tok('operator','+'), ...logOf(1000)], Math.abs(a - b) * c + pc.sum + 3);
+    }
+    case 'sin_log_sqrt_pows7': { // 1+3+√a+sum7 = 4+√a+sum7
+      const a = pick(BIG_SQUARES);
+      const pc = powRun(rng, 7, 2, 4, EXPERT_EXP);
+      return buildEquation([...sinHalf(), tok('operator','+'), ...logOf(1000), tok('operator','+'), ...sqrtOf(a), tok('operator','+'), ...pc.tokens], 4 + Math.sqrt(a) + pc.sum);
+    }
+    case 'tan_ln_e0_pows7': { // 1+1+1+sum7 = 3+sum7
+      const pc = powRun(rng, 7, 2, 4, EXPERT_EXP);
+      return buildEquation([...tanQuarter(), tok('operator','+'), ...lnOf('e'), tok('operator','+'), ...ePow0(), tok('operator','+'), ...pc.tokens], 3 + pc.sum);
+    }
+    case 'sqrt_log_abs_pows6': { // √a+3+|b-c|+sum6
+      const a = pick(BIG_SQUARES), b = one9(), c = one9();
+      const pc = powRun(rng, 6, 2, 4, EXPERT_EXP);
+      return buildEquation([...sqrtOf(a), tok('operator','+'), ...logOf(1000), tok('operator','+'), ...absSub(b, c), tok('operator','+'), ...pc.tokens], Math.sqrt(a) + 3 + Math.abs(b - c) + pc.sum);
+    }
+    case 'bigmix_pows2': { // 1+1+1+3+√a+√b+1+sum2 = 7+√a+√b+sum2
+      const a = pick(BIG_SQUARES), b = pick(BIG_SQUARES);
+      const pc = powRun(rng, 2, 2, 4, EXPERT_EXP);
+      return buildEquation([...sinHalf(), tok('operator','+'), ...cosZero(), tok('operator','+'), ...tanQuarter(), tok('operator','+'), ...logOf(1000), tok('operator','+'), ...sqrtOf(a), tok('operator','+'), ...sqrtOf(b), tok('operator','+'), ...ePow0(), tok('operator','+'), ...pc.tokens], 7 + Math.sqrt(a) + Math.sqrt(b) + pc.sum);
     }
   }
 }
@@ -574,6 +489,11 @@ function verifyEquation(tokens) {
   }
 }
 
+// 统计隐藏槽位数量
+function countHidden(tokens) {
+  return tokens.filter((t) => t.hidden).length;
+}
+
 // 主生成函数
 const GENERATORS = {
   beginner: genBeginner,
@@ -586,13 +506,14 @@ const GENERATORS = {
 export function generateEquation(difficulty, seed) {
   const rng = makeRNGHelpers(createRNG(seed));
   const gen = GENERATORS[difficulty];
+  const [minSlots, maxSlots] = SLOT_RANGES[difficulty] || [1, Infinity];
   let tokens;
   let attempts = 0;
   do {
     tokens = gen(rng);
     attempts++;
-    if (attempts > 50) break;
-  } while (!verifyEquation(tokens));
+    if (attempts > 80) break;
+  } while (!verifyEquation(tokens) || !(countHidden(tokens) >= minSlots && countHidden(tokens) <= maxSlots));
 
   // 提取槽位答案
   const answer = tokens.filter(t => t.hidden).map(t => t.symbol);

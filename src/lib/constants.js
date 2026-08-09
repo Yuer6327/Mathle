@@ -27,7 +27,8 @@ export const DIFFICULTY_ACTIVE = {
   expert: 'bg-red-500/15 text-red-300 border-red-400/70'
 };
 
-// 各难度的符号池（与生成器用到的符号保持一致）
+// 各难度的符号池 —— 严格递增（每档都是上一档的超集，只增不减）
+//   保证“符号池越往上越多”，且生成器产出的每个符号都必然可猜
 export const SYMBOL_POOLS = {
   beginner: {
     numbers: ['0','1','2','3','4','5','6','7','8','9'],
@@ -36,33 +37,33 @@ export const SYMBOL_POOLS = {
   },
   easy: {
     numbers: ['0','1','2','3','4','5','6','7','8','9','pi'],
-    operators: ['+', '-', '×', '÷'],
-    functions: ['sin', 'cos', 'log']
+    operators: ['+', '-', '×', '÷', '^', '%'],
+    functions: ['sqrt', 'sin', 'cos', 'log']
   },
   medium: {
     numbers: ['0','1','2','3','4','5','6','7','8','9','pi'],
-    operators: ['+', '-', '×', '÷', '^'],
-    functions: ['sqrt', 'sin', 'cos', 'log']
+    operators: ['+', '-', '×', '÷', '^', '%'],
+    functions: ['sqrt', 'sin', 'cos', 'log', 'tan']
   },
   hard: {
-    numbers: ['0','1','2','3','4','5','6','7','8','9'],
-    operators: ['+', '-', '×', '^'],
-    functions: ['sqrt']
+    numbers: ['0','1','2','3','4','5','6','7','8','9','pi','e'],
+    operators: ['+', '-', '×', '÷', '^', '%'],
+    functions: ['sqrt', 'sin', 'cos', 'log', 'tan', 'ln']
   },
   expert: {
-    numbers: ['0','1','2','3','4','5','6','7','8','9','pi'],
-    operators: ['+', '-', '×', '÷', '^'],
-    functions: ['sqrt', 'sin', 'cos', 'log'] // 生成器会产出 log(1000)，必须可输入/可提交
+    numbers: ['0','1','2','3','4','5','6','7','8','9','pi','e'],
+    operators: ['+', '-', '×', '÷', '^', '%'],
+    functions: ['sqrt', 'sin', 'cos', 'log', 'tan', 'ln', 'abs']
   }
 };
 
-// 各难度的槽位数量范围（实测范围；仅文档用途）
+// 各难度的槽位数量范围 —— 生成器据此重试，保证命中范围
 export const SLOT_RANGES = {
   beginner: [5, 8],
-  easy: [5, 11],
-  medium: [8, 15],
-  hard: [15, 19],      // 困难题干翻倍
-  expert: [27, 39]     // 极难题干翻 3 倍
+  easy: [7, 11],
+  medium: [10, 21],
+  hard: [20, 31],
+  expert: [30, 45]
 };
 
 // 各难度限时（秒）—— 倒计时用；困难/极难表达式更长，时间放宽
@@ -101,13 +102,15 @@ export const SYMBOL_DISPLAY = {
   'sin': 'sin',
   'cos': 'cos',
   'tan': 'tan',
-  'log': 'lg' // 以 10 为底的对数，显示为 lg 更清晰；内部符号仍为 'log'
+  'log': 'lg', // 以 10 为底的对数，显示为 lg 更清晰；内部符号仍为 'log'
+  'ln': 'ln',  // 以 e 为底的自然对数
+  'abs': 'abs' // 绝对值 |a|
 };
 
 // 符号类型分类
 export function getSymbolType(symbol) {
   if (['+', '-', '×', '÷', '^', '%'].includes(symbol)) return 'operator';
-  if (['sqrt', 'sin', 'cos', 'tan', 'log'].includes(symbol)) return 'function';
+  if (['sqrt', 'sin', 'cos', 'tan', 'log', 'ln', 'abs'].includes(symbol)) return 'function';
   return 'number'; // 0-9, pi, e
 }
 
@@ -125,5 +128,7 @@ export const SYMBOL_TO_EVAL = {
   'sin': 'S.sin',
   'cos': 'S.cos',
   'tan': 'S.tan',
-  'log': 'S.log10'
+  'log': 'S.log10',
+  'ln': 'S.ln',
+  'abs': 'S.abs'
 };
