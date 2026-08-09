@@ -6,6 +6,10 @@ server/.env
 *.local
 .DS_Store
 
+# 介绍视频渲染产物
+promo-video/out/
+promo-video/studio.log
+
 # Claude Code 本地配置
 .claude/
 CLAUDE.md
