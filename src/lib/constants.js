@@ -32,27 +32,27 @@ export const DIFFICULTY_ACTIVE = {
 export const SYMBOL_POOLS = {
   beginner: {
     numbers: ['0','1','2','3','4','5','6','7','8','9'],
-    operators: ['+', '-', '×', '^', '%'],
+    operators: ['+', '-', '×', '^'],
     functions: ['sqrt']
   },
   easy: {
     numbers: ['0','1','2','3','4','5','6','7','8','9','pi'],
-    operators: ['+', '-', '×', '÷', '^', '%'],
+    operators: ['+', '-', '×', '÷', '^'],
     functions: ['sqrt', 'sin', 'cos', 'log']
   },
   medium: {
     numbers: ['0','1','2','3','4','5','6','7','8','9','pi'],
-    operators: ['+', '-', '×', '÷', '^', '%'],
+    operators: ['+', '-', '×', '÷', '^'],
     functions: ['sqrt', 'sin', 'cos', 'log', 'tan']
   },
   hard: {
     numbers: ['0','1','2','3','4','5','6','7','8','9','pi','e'],
-    operators: ['+', '-', '×', '÷', '^', '%'],
+    operators: ['+', '-', '×', '÷', '^'],
     functions: ['sqrt', 'sin', 'cos', 'log', 'tan', 'ln']
   },
   expert: {
     numbers: ['0','1','2','3','4','5','6','7','8','9','pi','e'],
-    operators: ['+', '-', '×', '÷', '^', '%'],
+    operators: ['+', '-', '×', '÷', '^'],
     functions: ['sqrt', 'sin', 'cos', 'log', 'tan', 'ln', 'abs']
   }
 };
@@ -95,7 +95,6 @@ export const SYMBOL_DISPLAY = {
   '×': '×',
   '÷': '÷',
   '^': '^',
-  '%': '%',
   '+': '+',
   '-': '−',
   'sqrt': '√',
@@ -109,7 +108,7 @@ export const SYMBOL_DISPLAY = {
 
 // 符号类型分类
 export function getSymbolType(symbol) {
-  if (['+', '-', '×', '÷', '^', '%'].includes(symbol)) return 'operator';
+  if (['+', '-', '×', '÷', '^'].includes(symbol)) return 'operator';
   if (['sqrt', 'sin', 'cos', 'tan', 'log', 'ln', 'abs'].includes(symbol)) return 'function';
   return 'number'; // 0-9, pi, e
 }
@@ -121,7 +120,6 @@ export const SYMBOL_TO_EVAL = {
   '×': '*',
   '÷': '/',
   '^': '^', // 在 parser 里特殊处理
-  '%': '%',
   '+': '+',
   '-': '-',
   'sqrt': 'S.sqrt',

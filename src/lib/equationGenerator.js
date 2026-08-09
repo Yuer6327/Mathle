@@ -2,7 +2,7 @@
 // 根据难度生成包含隐藏槽位的数学等式
 //
 // 难度设计（槽位数量严格递增，符号池也是上一档的超集，只增不减）：
-//   入门  beginner: 5-8  槽，sqrt/幂/取模/乘减，符号池最小
+//   入门  beginner: 5-8  槽，sqrt/幂/乘减，符号池最小
 //   简单  easy:     7-11 槽，引入 pi / ÷ / sin / cos / log
 //   中等  medium:   10-21 槽，引入 tan，函数+幂组合
 //   困难  hard:     20-31 槽，引入 e / ln，多段长式（4-7 个幂项）
@@ -109,10 +109,10 @@ const EXPERT_EXP = [2, 2, 3, 3, 4, 5];
 
 // ─── 难度模板 ───
 
-// 入门: sqrt(a)+b=c / a^b+c=d / a%b+c=d / a×b-c=d
+// 入门: sqrt(a)+b=c / a^b+c=d / a×b-c=d
 function genBeginner(rng) {
   const { int, pick } = rng;
-  const template = pick(['sqrt', 'pow', 'mod', 'mulsub']);
+  const template = pick(['sqrt', 'pow', 'mulsub']);
   switch (template) {
     case 'sqrt': {
       const squares = [1, 4, 9, 16, 25, 36, 49, 64, 81, 100];
@@ -138,19 +138,6 @@ function genBeginner(rng) {
       return buildEquation([
         tok('number', String(a)),
         tok('operator', '^'),
-        tok('number', String(b)),
-        tok('operator', '+'),
-        tok('number', String(c))
-      ], d);
-    }
-    case 'mod': {
-      const b = int(3, 9);
-      const a = int(1, 10) * b + int(1, b - 1);
-      const c = int(1, 9);
-      const d = (a % b) + c;
-      return buildEquation([
-        tok('number', String(a)),
-        tok('operator', '%'),
         tok('number', String(b)),
         tok('operator', '+'),
         tok('number', String(c))

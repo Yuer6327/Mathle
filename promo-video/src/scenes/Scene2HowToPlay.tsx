@@ -14,7 +14,7 @@ const SLOTS = [
   {symbol: '1', kind: 'number' as const},
 ];
 
-const POOL = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '−', '×', '÷', '^', '%', '√'];
+const POOL = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '−', '×', '÷', '^', '√'];
 
 export const Scene2HowToPlay: React.FC = () => {
   const frame = useCurrentFrame();

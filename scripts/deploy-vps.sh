@@ -31,6 +31,12 @@ if [ -z "$JWT_SECRET" ]; then
 fi
 echo "✓ JWT_SECRET 已就绪（长度 ${#JWT_SECRET}）"
 
+# 1.1 生成器自检（本地，先于部署）：去掉 % 后各难度仍能稳定生成合法等式
+# 校验失败立即退出，避免把坏生成器推上线
+echo "→ 本地校验等式生成器（无 % / 整数结果 / 命中槽位区间）..."
+node scripts/verify-equations.mjs
+echo "✓ 生成器自检通过"
+
 # 2. ssh 封装
 ASKPASS=""
 if [ -n "$PASS" ]; then
@@ -50,7 +56,7 @@ echo "✓ SSH 连接正常"
 # 3. 上传代码（排除 node_modules / 测试 / 密钥）
 echo "→ 上传 server/ + src/lib/ 到 /opt/mathwordle ..."
 mkdir -p /tmp/mw_tar 2>/dev/null || true
-tar -czf - --exclude='server/node_modules' --exclude='server/smoke.mjs' --exclude='server/room-smoke.mjs' --exclude='server/.env' server src/lib | \
+tar -czf - --exclude='server/node_modules' --exclude='server/smoke.mjs' --exclude='server/room-smoke.mjs' --exclude='server/.env' server src/lib scripts/verify-equations.mjs | \
   SSHH 'rm -rf /opt/mathwordle && mkdir -p /opt/mathwordle && tar -xzf - -C /opt/mathwordle && echo "✓ 代码已上传"'
 
 # 3.1 补 /opt/mathwordle/package.json，让 src/lib/*.js 按 ESM 加载（Node 18 需要）
@@ -124,6 +130,10 @@ for f in online-counter-tls online-counter; do
   fi
 done
 nginx -t && systemctl reload nginx && echo "✓ nginx reloaded"'
+
+# 8. 在 VPS 上校验已部署的生成器（确认生产端跑的是最新式子：无 %）
+echo "→ 在 VPS 上运行生成器自检（node scripts/verify-equations.mjs）..."
+SSHH 'cd /opt/mathwordle && node scripts/verify-equations.mjs'
 
 echo ""
 echo "✅ 部署完成"
