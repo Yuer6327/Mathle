@@ -61,8 +61,8 @@ export const SLOT_RANGES = {
   beginner: [6, 8],
   easy: [7, 10],
   medium: [8, 12],
-  hard: [6, 10],
-  expert: [10, 18]
+  hard: [14, 20],      // 困难题干翻倍
+  expert: [27, 42]     // 极难题干翻 3 倍
 };
 
 // 各难度限时（秒）—— 倒计时用；困难/极难表达式更长，时间放宽
@@ -70,8 +70,8 @@ export const DIFFICULTY_TIME_LIMIT = {
   beginner: 3 * 60,
   easy: 4 * 60,
   medium: 5 * 60,
-  hard: 7 * 60,
-  expert: 10 * 60
+  hard: 10 * 60,
+  expert: 15 * 60
 };
 
 // 反馈颜色

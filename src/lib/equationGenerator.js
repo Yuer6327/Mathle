@@ -4,8 +4,8 @@
 //   入门 = 原中等：sqrt / 幂 / 取模 / 乘减
 //   简单 = 原困难：sin / cos+log / sin+乘
 //   中等 = 原极难：sin(pi÷2)+sqrt× / cos(0)+sqrt+log / 平方和
-//   困难 = 新增：带幂的较长表达式
-//   极难 = 新增：超长表达式
+//   困难 = 新增：带幂的较长表达式（题干翻倍，约 14-20 槽）
+//   极难 = 新增：超长表达式（题干翻 3 倍，约 27-38 槽）
 //
 // 数字一律拆成单个数字槽位（含表达式内的多位数），保证每个槽位只占一个可猜符号。
 
@@ -252,182 +252,234 @@ function genMedium(rng) {
   }
 }
 
-// 困难: a²+b×c=d / sqrt(a)+b²=c / a²+b²-c=d / a³+b×c=d
+// 困难: 题干翻倍（约 14-20 槽），多段式长表达式
+//   a²+b²+c²+d²=e
+//   a³+b²+c²+d=e
+//   a²×b+c²+d²=e
+//   sqrt(a)+b²+c³+d²=e
 function genHard(rng) {
   const { int, pick } = rng;
-  const template = pick(['powmul', 'sqrtpow', 'powsub', 'cubemul']);
+  const squares = [4, 9, 16, 25, 36, 49, 64, 81, 100];
+  const template = pick(['quad_pow', 'cube_sq_sq', 'pow_mul_sq_sq', 'sqrt_sq_cube_sq']);
   switch (template) {
-    case 'powmul': {
-      const a = int(2, 9);
-      const b = int(2, 9);
-      const c = int(1, 9);
-      const d = a * a + b * c;
+    case 'quad_pow': {
+      // a² + b² + c² + d² = e
+      const a = int(2, 5);
+      const b = int(2, 5);
+      const c = int(2, 5);
+      const d = int(2, 5);
+      const total = a * a + b * b + c * c + d * d;
       return buildEquation([
-        tok('number', String(a)),
-        tok('operator', '^'),
-        tok('number', '2'),
+        tok('number', String(a)), tok('operator', '^'), tok('number', '2'),
         tok('operator', '+'),
-        tok('number', String(b)),
-        tok('operator', '×'),
-        tok('number', String(c))
-      ], d);
+        tok('number', String(b)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '+'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '+'),
+        tok('number', String(d)), tok('operator', '^'), tok('number', '2')
+      ], total);
     }
-    case 'sqrtpow': {
-      const squares = [4, 9, 16, 25, 36, 49, 64, 81, 100];
+    case 'cube_sq_sq': {
+      // a³ + b² + c² + d = e
+      const a = int(2, 4);
+      const b = int(2, 5);
+      const c = int(2, 5);
+      const d = int(1, 9);
+      const total = a * a * a + b * b + c * c + d;
+      return buildEquation([
+        tok('number', String(a)), tok('operator', '^'), tok('number', '3'),
+        tok('operator', '+'),
+        tok('number', String(b)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '+'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '+'),
+        tok('number', String(d))
+      ], total);
+    }
+    case 'pow_mul_sq_sq': {
+      // a² × b + c² + d² = e
+      const a = int(2, 5);
+      const b = int(2, 5);
+      const c = int(2, 5);
+      const d = int(2, 5);
+      const total = a * a * b + c * c + d * d;
+      return buildEquation([
+        tok('number', String(a)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '×'),
+        tok('number', String(b)),
+        tok('operator', '+'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '+'),
+        tok('number', String(d)), tok('operator', '^'), tok('number', '2')
+      ], total);
+    }
+    case 'sqrt_sq_cube_sq': {
+      // sqrt(a) + b² + c³ + d² = e
       const a = pick(squares);
       const root = Math.sqrt(a);
-      const b = int(2, 6);
-      const c = root + b * b;
+      const b = int(2, 5);
+      const c = int(2, 4);
+      const d = int(2, 5);
+      const total = root + b * b + c * c * c + d * d;
       return buildEquation([
-        tok('function', 'sqrt'),
-        tok('lparen', '(', false),
-        tok('number', String(a)),
-        tok('rparen', ')', false),
+        tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(a)), tok('rparen', ')', false),
         tok('operator', '+'),
-        tok('number', String(b)),
-        tok('operator', '^'),
-        tok('number', '2')
-      ], c);
-    }
-    case 'powsub': {
-      const a = int(2, 6);
-      const b = int(2, 6);
-      const c = int(1, a * a + b * b - 1);
-      const d = a * a + b * b - c;
-      return buildEquation([
-        tok('number', String(a)),
-        tok('operator', '^'),
-        tok('number', '2'),
+        tok('number', String(b)), tok('operator', '^'), tok('number', '2'),
         tok('operator', '+'),
-        tok('number', String(b)),
-        tok('operator', '^'),
-        tok('number', '2'),
-        tok('operator', '-'),
-        tok('number', String(c))
-      ], d);
-    }
-    case 'cubemul': {
-      const a = int(2, 4);
-      const b = int(2, 9);
-      const c = int(1, 9);
-      const d = a * a * a + b * c;
-      return buildEquation([
-        tok('number', String(a)),
-        tok('operator', '^'),
-        tok('number', '3'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', '3'),
         tok('operator', '+'),
-        tok('number', String(b)),
-        tok('operator', '×'),
-        tok('number', String(c))
-      ], d);
+        tok('number', String(d)), tok('operator', '^'), tok('number', '2')
+      ], total);
     }
   }
 }
 
-// 极难: 超长表达式
-//   sin(pi÷2)+sqrt(a)+b²=c
-//   cos(0)+sqrt(a)×b+c²=d
-//   a³+sqrt(b)+c=d
-//   sin(pi÷2)×sqrt(a)+b²×c=d
+// 极难: 题干翻 3 倍（约 27-38 槽），多段超长表达式
+//   sin(pi÷2)+cos(0)+log(1000)+sqrt(a)+b²+c²+d²=e
+//   sin(pi÷2)×sqrt(a)+cos(0)×sqrt(b)+c²+d²+e²=f
+//   a³+b²+c³+d²+e³+f²+g²=h
+//   sin(pi÷2)+sqrt(a)+log(1000)+b³+c²+d³+e²=f
+//   sin(pi÷2)+cos(0)+log(1000)+sqrt(a)+b³+c²+d³+e²+f=g
 function genExpert(rng) {
   const { int, pick } = rng;
-  const template = pick(['sin_sqrt_pow', 'cos_sqrt_mul_pow', 'cube_sqrt_add', 'sin_sqrt_mul_pow']);
   const squares = [4, 9, 16, 25, 36, 49, 64, 81, 100];
+  const template = pick([
+    'sin_cos_log_sqrt_sq',
+    'sin_sqrt_cos_sqrt_sq',
+    'cube_sq_cube_sq_cube_sq_sq',
+    'sin_sqrt_log_cube_sq_cube_sq',
+    'sin_cos_log_sqrt_cube_sq_cube_sq_sq'
+  ]);
   switch (template) {
-    case 'sin_sqrt_pow': {
-      // sin(pi÷2)=1 → 1 + sqrt(a) + b²
-      const a = pick(squares);
-      const root = Math.sqrt(a);
-      const b = int(2, 6);
-      const c = 1 + root + b * b;
-      return buildEquation([
-        tok('function', 'sin'),
-        tok('lparen', '(', false),
-        tok('number', 'pi'),
-        tok('operator', '÷'),
-        tok('number', '2'),
-        tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('function', 'sqrt'),
-        tok('lparen', '(', false),
-        tok('number', String(a)),
-        tok('rparen', ')', false),
-        tok('operator', '+'),
-        tok('number', String(b)),
-        tok('operator', '^'),
-        tok('number', '2')
-      ], c);
-    }
-    case 'cos_sqrt_mul_pow': {
-      // cos(0)=1 → 1 + sqrt(a)×b + c²
+    case 'sin_cos_log_sqrt_sq': {
+      // sin(pi÷2)=1, cos(0)=1, log(1000)=3
       const a = pick(squares);
       const root = Math.sqrt(a);
       const b = int(2, 5);
       const c = int(2, 5);
-      const d = 1 + root * b + c * c;
+      const d = int(2, 5);
+      const total = 1 + 1 + 3 + root + b * b + c * c + d * d;
       return buildEquation([
-        tok('function', 'cos'),
-        tok('lparen', '(', false),
-        tok('number', '0'),
-        tok('rparen', ')', false),
+        tok('function', 'sin'), tok('lparen', '(', false), tok('number', 'pi'), tok('operator', '÷'), tok('number', '2'), tok('rparen', ')', false),
         tok('operator', '+'),
-        tok('function', 'sqrt'),
-        tok('lparen', '(', false),
-        tok('number', String(a)),
-        tok('rparen', ')', false),
-        tok('operator', '×'),
-        tok('number', String(b)),
+        tok('function', 'cos'), tok('lparen', '(', false), tok('number', '0'), tok('rparen', ')', false),
         tok('operator', '+'),
-        tok('number', String(c)),
-        tok('operator', '^'),
-        tok('number', '2')
-      ], d);
+        tok('function', 'log'), tok('lparen', '(', false), tok('number', '1000'), tok('rparen', ')', false),
+        tok('operator', '+'),
+        tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(a)), tok('rparen', ')', false),
+        tok('operator', '+'),
+        tok('number', String(b)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '+'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '+'),
+        tok('number', String(d)), tok('operator', '^'), tok('number', '2')
+      ], total);
     }
-    case 'cube_sqrt_add': {
-      const a = int(2, 4);
+    case 'sin_sqrt_cos_sqrt_sq': {
+      // sin(pi÷2)×sqrt(a)=sqrt(a), cos(0)×sqrt(b)=sqrt(b)
+      const a = pick(squares);
+      const rootA = Math.sqrt(a);
       const b = pick(squares);
-      const root = Math.sqrt(b);
-      const c = int(1, 9);
-      const d = a * a * a + root + c;
+      const rootB = Math.sqrt(b);
+      const c = int(2, 5);
+      const d = int(2, 5);
+      const e = int(2, 5);
+      const total = rootA + rootB + c * c + d * d + e * e;
       return buildEquation([
-        tok('number', String(a)),
-        tok('operator', '^'),
-        tok('number', '3'),
+        tok('function', 'sin'), tok('lparen', '(', false), tok('number', 'pi'), tok('operator', '÷'), tok('number', '2'), tok('rparen', ')', false),
+        tok('operator', '×'),
+        tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(a)), tok('rparen', ')', false),
         tok('operator', '+'),
-        tok('function', 'sqrt'),
-        tok('lparen', '(', false),
-        tok('number', String(b)),
-        tok('rparen', ')', false),
+        tok('function', 'cos'), tok('lparen', '(', false), tok('number', '0'), tok('rparen', ')', false),
+        tok('operator', '×'),
+        tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(b)), tok('rparen', ')', false),
         tok('operator', '+'),
-        tok('number', String(c))
-      ], d);
+        tok('number', String(c)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '+'),
+        tok('number', String(d)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '+'),
+        tok('number', String(e)), tok('operator', '^'), tok('number', '2')
+      ], total);
     }
-    case 'sin_sqrt_mul_pow': {
-      // sin(pi÷2)×sqrt(a)=sqrt(a) → sqrt(a) + b²×c
+    case 'cube_sq_cube_sq_cube_sq_sq': {
+      const a = int(2, 3);
+      const b = int(2, 4);
+      const c = int(2, 3);
+      const d = int(2, 4);
+      const e = int(2, 3);
+      const f = int(2, 4);
+      const g = int(2, 4);
+      const total = a * a * a + b * b + c * c * c + d * d + e * e * e + f * f + g * g;
+      return buildEquation([
+        tok('number', String(a)), tok('operator', '^'), tok('number', '3'),
+        tok('operator', '+'),
+        tok('number', String(b)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '+'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', '3'),
+        tok('operator', '+'),
+        tok('number', String(d)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '+'),
+        tok('number', String(e)), tok('operator', '^'), tok('number', '3'),
+        tok('operator', '+'),
+        tok('number', String(f)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '+'),
+        tok('number', String(g)), tok('operator', '^'), tok('number', '2')
+      ], total);
+    }
+    case 'sin_sqrt_log_cube_sq_cube_sq': {
+      // sin(pi÷2)=1, log(1000)=3
       const a = pick(squares);
       const root = Math.sqrt(a);
-      const b = int(2, 4);
+      const b = int(2, 3);
       const c = int(2, 4);
-      const d = root + b * b * c;
+      const d = int(2, 3);
+      const e = int(2, 4);
+      const total = 1 + root + 3 + b * b * b + c * c + d * d * d + e * e;
       return buildEquation([
-        tok('function', 'sin'),
-        tok('lparen', '(', false),
-        tok('number', 'pi'),
-        tok('operator', '÷'),
-        tok('number', '2'),
-        tok('rparen', ')', false),
-        tok('operator', '×'),
-        tok('function', 'sqrt'),
-        tok('lparen', '(', false),
-        tok('number', String(a)),
-        tok('rparen', ')', false),
+        tok('function', 'sin'), tok('lparen', '(', false), tok('number', 'pi'), tok('operator', '÷'), tok('number', '2'), tok('rparen', ')', false),
         tok('operator', '+'),
-        tok('number', String(b)),
-        tok('operator', '^'),
-        tok('number', '2'),
-        tok('operator', '×'),
-        tok('number', String(c))
-      ], d);
+        tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(a)), tok('rparen', ')', false),
+        tok('operator', '+'),
+        tok('function', 'log'), tok('lparen', '(', false), tok('number', '1000'), tok('rparen', ')', false),
+        tok('operator', '+'),
+        tok('number', String(b)), tok('operator', '^'), tok('number', '3'),
+        tok('operator', '+'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '+'),
+        tok('number', String(d)), tok('operator', '^'), tok('number', '3'),
+        tok('operator', '+'),
+        tok('number', String(e)), tok('operator', '^'), tok('number', '2')
+      ], total);
+    }
+    case 'sin_cos_log_sqrt_cube_sq_cube_sq_sq': {
+      // sin(pi÷2)=1, cos(0)=1, log(1000)=3
+      const a = pick(squares);
+      const root = Math.sqrt(a);
+      const b = int(2, 3);
+      const c = int(2, 4);
+      const d = int(2, 3);
+      const e = int(2, 4);
+      const f = int(1, 9);
+      const total = 1 + 1 + 3 + root + b * b * b + c * c + d * d * d + e * e + f;
+      return buildEquation([
+        tok('function', 'sin'), tok('lparen', '(', false), tok('number', 'pi'), tok('operator', '÷'), tok('number', '2'), tok('rparen', ')', false),
+        tok('operator', '+'),
+        tok('function', 'cos'), tok('lparen', '(', false), tok('number', '0'), tok('rparen', ')', false),
+        tok('operator', '+'),
+        tok('function', 'log'), tok('lparen', '(', false), tok('number', '1000'), tok('rparen', ')', false),
+        tok('operator', '+'),
+        tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(a)), tok('rparen', ')', false),
+        tok('operator', '+'),
+        tok('number', String(b)), tok('operator', '^'), tok('number', '3'),
+        tok('operator', '+'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '+'),
+        tok('number', String(d)), tok('operator', '^'), tok('number', '3'),
+        tok('operator', '+'),
+        tok('number', String(e)), tok('operator', '^'), tok('number', '2'),
+        tok('operator', '+'),
+        tok('number', String(f))
+      ], total);
     }
   }
 }
