@@ -28,10 +28,6 @@ export const Scene1Title: React.FC = () => {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
-  const badgesIn = interpolate(frame, [80, 100], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
   const glowPulse = interpolate(frame % 60, [0, 30, 60], [0.55, 0.9, 0.55]);
 
   return (
@@ -93,27 +89,7 @@ export const Scene1Title: React.FC = () => {
             letterSpacing: 2,
           }}
         >
-          猜等式的数学版 Wordle
-        </div>
-
-        <div style={{display: 'flex', gap: 16, opacity: badgesIn}}>
-          {['单人挑战', '人机对战', '联机对战'].map((b, i) => (
-            <div
-              key={b}
-              style={{
-                padding: '10px 26px',
-                borderRadius: 999,
-                border: `1px solid ${i === 2 ? C.yellow + '77' : C.borderLight}`,
-                backgroundColor: i === 2 ? 'rgba(250,204,21,0.10)' : 'rgba(255,255,255,0.04)',
-                fontFamily: sans,
-                fontSize: 26,
-                fontWeight: 600,
-                color: i === 2 ? C.yellow : C.text,
-              }}
-            >
-              {b}
-            </div>
-          ))}
+          数学版 Wordle
         </div>
       </div>
     </SceneFrame>

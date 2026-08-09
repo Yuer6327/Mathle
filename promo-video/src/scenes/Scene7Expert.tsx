@@ -155,7 +155,7 @@ export const Scene7Expert: React.FC = () => {
             30–45 个槽位 · 结果却总是整数
           </div>
           <div style={{fontFamily: sans, fontSize: 30, fontWeight: 500, color: C.text2}}>
-            这么难的等式，你能解出来吗？
+            这么难的等式，你能猜出来吗？
           </div>
         </div>
       </div>

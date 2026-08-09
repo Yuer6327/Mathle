@@ -282,3 +282,88 @@ export const Bullet: React.FC<{
     </div>
   );
 };
+
+// 猜词动画板：模拟瞎猜——空槽出现后，逐个 token 填入并带反馈色（部分对部分错）
+// 盘面 = 3 × 7 = 21；盲猜 = 5 × 3 = 21 → 灰(不在) 绿(对) 黄(位置错) 绿 绿
+export const GuessBoard: React.FC<{start?: number; size?: number}> = ({start = 0, size = 104}) => {
+  const frame = useNormFrame();
+  const tokens: {s: string; kind: 'number' | 'operator' | 'equal'; color: string | null}[] = [
+    {s: '5', kind: 'number', color: C.gray},
+    {s: '×', kind: 'operator', color: C.green},
+    {s: '3', kind: 'number', color: C.yellow},
+    {s: '=', kind: 'equal', color: null},
+    {s: '2', kind: 'number', color: C.green},
+    {s: '1', kind: 'number', color: C.green},
+  ];
+  let slotIdx = 0;
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        backgroundColor: C.panel,
+        border: `1px solid ${C.border}`,
+        borderRadius: 24,
+        padding: '30px 36px',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+      }}
+    >
+      {tokens.map((t, i) => {
+        if (t.kind === 'equal') {
+          const o = interpolate(frame, [start + 28, start + 38], [0, 1], {
+            extrapolateLeft: 'clamp',
+            extrapolateRight: 'clamp',
+          });
+          return (
+            <div
+              key={i}
+              style={{
+                opacity: o,
+                width: size * 0.55,
+                height: size,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: mono,
+                fontSize: size * 0.56,
+                fontWeight: 600,
+                color: C.text2,
+              }}
+            >
+              =
+            </div>
+          );
+        }
+        const idx = slotIdx++;
+        const popAt = start + 26 + idx * 3;
+        const fillAt = start + 50 + idx * 9;
+        const filled = frame >= fillAt;
+        const emptyIn = interpolate(frame, [popAt, popAt + 10], [0, 1], {
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        });
+        const y = interpolate(frame, [popAt, popAt + 10], [16, 0], {
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        });
+        const flip = interpolate(frame, [fillAt, fillAt + 10], [0, 1], {
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        });
+        return (
+          <div key={i} style={{opacity: emptyIn, translate: `0 ${y}px`, transformStyle: 'preserve-3d'}}>
+            <div
+              style={{
+                transform: `perspective(600px) rotateX(${interpolate(flip, [0, 1], [88, 0])}deg)`,
+                backfaceVisibility: 'hidden',
+              }}
+            >
+              <Tile symbol={filled ? t.s : ''} kind={t.kind} color={filled ? t.color! : undefined} size={size} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};

@@ -12,7 +12,6 @@ const LEGEND = [
 
 export const Scene3Feedback: React.FC = () => {
   const frame = useNormFrame();
-  const capIn = appear(frame, 104, 14, 20);
 
   return (
     <SceneFrame>
@@ -62,11 +61,6 @@ export const Scene3Feedback: React.FC = () => {
                 </div>
               );
             })}
-            <div style={{opacity: capIn.opacity, translate: capIn.translate, marginTop: 6}}>
-              <div style={{fontFamily: sans, fontSize: 28, fontWeight: 500, color: C.text3}}>
-                每一次猜测，逐格立即配色 · 真实游戏截图
-              </div>
-            </div>
           </div>
         </div>
       </div>
