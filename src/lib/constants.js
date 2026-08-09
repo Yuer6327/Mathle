@@ -52,17 +52,17 @@ export const SYMBOL_POOLS = {
   expert: {
     numbers: ['0','1','2','3','4','5','6','7','8','9','pi'],
     operators: ['+', '-', '×', '÷', '^'],
-    functions: ['sqrt', 'sin', 'cos']
+    functions: ['sqrt', 'sin', 'cos', 'log'] // 生成器会产出 log(1000)，必须可输入/可提交
   }
 };
 
-// 各难度的槽位数量范围
+// 各难度的槽位数量范围（实测范围；仅文档用途）
 export const SLOT_RANGES = {
-  beginner: [6, 8],
-  easy: [7, 10],
-  medium: [8, 12],
-  hard: [14, 20],      // 困难题干翻倍
-  expert: [27, 42]     // 极难题干翻 3 倍
+  beginner: [5, 8],
+  easy: [5, 11],
+  medium: [8, 15],
+  hard: [15, 19],      // 困难题干翻倍
+  expert: [27, 39]     // 极难题干翻 3 倍
 };
 
 // 各难度限时（秒）—— 倒计时用；困难/极难表达式更长，时间放宽

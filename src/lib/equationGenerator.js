@@ -3,10 +3,12 @@
 // 难度（整体上调后）：
 //   入门 = 原中等：sqrt / 幂 / 取模 / 乘减
 //   简单 = 原困难：sin / cos+log / sin+乘
-//   中等 = 原极难：sin(pi÷2)+sqrt× / cos(0)+sqrt+log / 平方和
-//   困难 = 新增：带幂的较长表达式（题干翻倍，约 14-20 槽）
-//   极难 = 新增：超长表达式（题干翻 3 倍，约 27-38 槽）
+//   中等 = 原极难：sin(pi÷2)+sqrt× / cos(0)+sqrt+log / 幂和
+//   困难 = 新增：带幂的较长表达式（题干翻倍，约 15-19 槽）
+//   极难 = 新增：超长表达式（题干翻 3 倍，约 27-39 槽）
 //
+// 幂（含“平方”）：指数不固定为 2/3，会在难度对应的集合（如 2/3/4、2-5）中变化，
+//   以增加生成式子多样性；指数仍是单个数字槽（^ 与数字都在对应难度的符号池里，保证可猜）。
 // 数字一律拆成单个数字槽位（含表达式内的多位数），保证每个槽位只占一个可猜符号。
 
 import { createRNG, makeRNGHelpers } from './seededRandom.js';
@@ -57,8 +59,8 @@ function genBeginner(rng) {
       ], c);
     }
     case 'pow': {
-      const b = int(2, 3);
-      const a = int(2, 6);
+      const b = pick([2, 2, 3, 4]); // 指数不再固定为 2/3，偶尔出现 4 次方（重试保证结果 ≤99）
+      const a = int(2, 5);
       const c = int(1, 9);
       const d = Math.pow(a, b) + c;
       if (d > 99) return genBeginner(rng); // 重试
@@ -235,111 +237,126 @@ function genMedium(rng) {
       ], c);
     }
     case 'powpow': {
-      // a² + b² = c（平方）
-      const a = int(2, 6);
-      const b = int(2, 6);
-      const c = a * a + b * b;
+      // a^x + b^y = c（“平方和”推广：指数可在 2/3/4 中变化，仍可猜：^ 与单个数字槽）
+      const a = int(2, 4);
+      const b = int(2, 4);
+      const x = pick([2, 2, 3, 4]);
+      const y = pick([2, 2, 3, 4]);
+      const c = Math.pow(a, x) + Math.pow(b, y);
       return buildEquation([
         tok('number', String(a)),
         tok('operator', '^'),
-        tok('number', '2'),
+        tok('number', String(x)),
         tok('operator', '+'),
         tok('number', String(b)),
         tok('operator', '^'),
-        tok('number', '2')
+        tok('number', String(y))
       ], c);
     }
   }
 }
 
-// 困难: 题干翻倍（约 14-20 槽），多段式长表达式
-//   a²+b²+c²+d²=e
-//   a³+b²+c²+d=e
-//   a²×b+c²+d²=e
-//   sqrt(a)+b²+c³+d²=e
+// 困难: 题干翻倍（约 15-19 槽），多段式长表达式，幂指数在 2/3/4 中变化
+//   a^w+b^x+c^y+d^z=e
+//   a^p+b^q+c^r+d=e
+//   a^p×b+c^q+d^r=e
+//   sqrt(a)+b^p+c^q+d^r=e
 function genHard(rng) {
   const { int, pick } = rng;
   const squares = [4, 9, 16, 25, 36, 49, 64, 81, 100];
   const template = pick(['quad_pow', 'cube_sq_sq', 'pow_mul_sq_sq', 'sqrt_sq_cube_sq']);
   switch (template) {
     case 'quad_pow': {
-      // a² + b² + c² + d² = e
-      const a = int(2, 5);
-      const b = int(2, 5);
-      const c = int(2, 5);
-      const d = int(2, 5);
-      const total = a * a + b * b + c * c + d * d;
+      // a^w + b^x + c^y + d^z = e（四项幂，指数各自在 2/3/4 中变化）
+      const a = int(2, 4);
+      const b = int(2, 4);
+      const c = int(2, 4);
+      const d = int(2, 4);
+      const w = pick([2, 2, 3, 3, 4]);
+      const x = pick([2, 2, 3, 3, 4]);
+      const y = pick([2, 2, 3, 3, 4]);
+      const z = pick([2, 2, 3, 3, 4]);
+      const total = Math.pow(a, w) + Math.pow(b, x) + Math.pow(c, y) + Math.pow(d, z);
       return buildEquation([
-        tok('number', String(a)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(a)), tok('operator', '^'), tok('number', String(w)),
         tok('operator', '+'),
-        tok('number', String(b)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(b)), tok('operator', '^'), tok('number', String(x)),
         tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', String(y)),
         tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', '2')
+        tok('number', String(d)), tok('operator', '^'), tok('number', String(z))
       ], total);
     }
     case 'cube_sq_sq': {
-      // a³ + b² + c² + d = e
+      // a^p + b^q + c^r + d = e（指数在 2/3/4 中变化）
       const a = int(2, 4);
-      const b = int(2, 5);
-      const c = int(2, 5);
+      const b = int(2, 4);
+      const c = int(2, 4);
       const d = int(1, 9);
-      const total = a * a * a + b * b + c * c + d;
+      const p = pick([2, 2, 3, 3, 4]);
+      const q = pick([2, 2, 3, 3, 4]);
+      const r = pick([2, 2, 3, 3, 4]);
+      const total = Math.pow(a, p) + Math.pow(b, q) + Math.pow(c, r) + d;
       return buildEquation([
-        tok('number', String(a)), tok('operator', '^'), tok('number', '3'),
+        tok('number', String(a)), tok('operator', '^'), tok('number', String(p)),
         tok('operator', '+'),
-        tok('number', String(b)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(b)), tok('operator', '^'), tok('number', String(q)),
         tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', String(r)),
         tok('operator', '+'),
         tok('number', String(d))
       ], total);
     }
     case 'pow_mul_sq_sq': {
-      // a² × b + c² + d² = e
-      const a = int(2, 5);
-      const b = int(2, 5);
-      const c = int(2, 5);
-      const d = int(2, 5);
-      const total = a * a * b + c * c + d * d;
+      // a^p × b + c^q + d^r = e（指数在 2/3/4 中变化）
+      const a = int(2, 4);
+      const b = int(2, 4);
+      const c = int(2, 4);
+      const d = int(2, 4);
+      const p = pick([2, 2, 3, 3, 4]);
+      const q = pick([2, 2, 3, 3, 4]);
+      const r = pick([2, 2, 3, 3, 4]);
+      const total = Math.pow(a, p) * b + Math.pow(c, q) + Math.pow(d, r);
       return buildEquation([
-        tok('number', String(a)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(a)), tok('operator', '^'), tok('number', String(p)),
         tok('operator', '×'),
         tok('number', String(b)),
         tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', String(q)),
         tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', '2')
+        tok('number', String(d)), tok('operator', '^'), tok('number', String(r))
       ], total);
     }
     case 'sqrt_sq_cube_sq': {
-      // sqrt(a) + b² + c³ + d² = e
+      // sqrt(a) + b^p + c^q + d^r = e（指数在 2/3/4 中变化）
       const a = pick(squares);
       const root = Math.sqrt(a);
-      const b = int(2, 5);
+      const b = int(2, 4);
       const c = int(2, 4);
-      const d = int(2, 5);
-      const total = root + b * b + c * c * c + d * d;
+      const d = int(2, 4);
+      const p = pick([2, 2, 3, 3, 4]);
+      const q = pick([2, 2, 3, 3, 4]);
+      const r = pick([2, 2, 3, 3, 4]);
+      const total = root + Math.pow(b, p) + Math.pow(c, q) + Math.pow(d, r);
       return buildEquation([
         tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(a)), tok('rparen', ')', false),
         tok('operator', '+'),
-        tok('number', String(b)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(b)), tok('operator', '^'), tok('number', String(p)),
         tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', '3'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', String(q)),
         tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', '2')
+        tok('number', String(d)), tok('operator', '^'), tok('number', String(r))
       ], total);
     }
   }
 }
 
-// 极难: 题干翻 3 倍（约 27-38 槽），多段超长表达式
-//   sin(pi÷2)+cos(0)+log(1000)+sqrt(a)+b²+c²+d²=e
-//   sin(pi÷2)×sqrt(a)+cos(0)×sqrt(b)+c²+d²+e²=f
-//   a³+b²+c³+d²+e³+f²+g²=h
-//   sin(pi÷2)+sqrt(a)+log(1000)+b³+c²+d³+e²=f
-//   sin(pi÷2)+cos(0)+log(1000)+sqrt(a)+b³+c²+d³+e²+f=g
+// 极难: 题干翻 3 倍（约 27-39 槽），多段超长表达式，幂指数在 2-5 中变化
+//   sin(pi÷2)+cos(0)+log(1000)+sqrt(a)+b^p+c^q+d^r=e
+//   sin(pi÷2)×sqrt(a)+cos(0)×sqrt(b)+c^p+d^q+e^r=f
+//   a^p+b^q+c^r+d^s+e^t+f^u+g^v=h
+//   sin(pi÷2)+sqrt(a)+log(1000)+b^p+c^q+d^r+e^s=f
+//   sin(pi÷2)+cos(0)+log(1000)+sqrt(a)+b^p+c^q+d^r+e^s+f=g
 function genExpert(rng) {
   const { int, pick } = rng;
   const squares = [4, 9, 16, 25, 36, 49, 64, 81, 100];
@@ -352,13 +369,16 @@ function genExpert(rng) {
   ]);
   switch (template) {
     case 'sin_cos_log_sqrt_sq': {
-      // sin(pi÷2)=1, cos(0)=1, log(1000)=3
+      // sin(pi÷2)=1, cos(0)=1, log(1000)=3；b/c/d 的指数可在 2-5 中变化
       const a = pick(squares);
       const root = Math.sqrt(a);
-      const b = int(2, 5);
-      const c = int(2, 5);
-      const d = int(2, 5);
-      const total = 1 + 1 + 3 + root + b * b + c * c + d * d;
+      const b = int(2, 3);
+      const c = int(2, 3);
+      const d = int(2, 3);
+      const p = pick([2, 2, 3, 3, 4, 5]);
+      const q = pick([2, 2, 3, 3, 4, 5]);
+      const r = pick([2, 2, 3, 3, 4, 5]);
+      const total = 1 + 1 + 3 + root + Math.pow(b, p) + Math.pow(c, q) + Math.pow(d, r);
       return buildEquation([
         tok('function', 'sin'), tok('lparen', '(', false), tok('number', 'pi'), tok('operator', '÷'), tok('number', '2'), tok('rparen', ')', false),
         tok('operator', '+'),
@@ -368,23 +388,26 @@ function genExpert(rng) {
         tok('operator', '+'),
         tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(a)), tok('rparen', ')', false),
         tok('operator', '+'),
-        tok('number', String(b)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(b)), tok('operator', '^'), tok('number', String(p)),
         tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', String(q)),
         tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', '2')
+        tok('number', String(d)), tok('operator', '^'), tok('number', String(r))
       ], total);
     }
     case 'sin_sqrt_cos_sqrt_sq': {
-      // sin(pi÷2)×sqrt(a)=sqrt(a), cos(0)×sqrt(b)=sqrt(b)
+      // sin(pi÷2)×sqrt(a)=sqrt(a), cos(0)×sqrt(b)=sqrt(b)；c/d/e 的指数可在 2-5 中变化
       const a = pick(squares);
       const rootA = Math.sqrt(a);
       const b = pick(squares);
       const rootB = Math.sqrt(b);
-      const c = int(2, 5);
-      const d = int(2, 5);
-      const e = int(2, 5);
-      const total = rootA + rootB + c * c + d * d + e * e;
+      const c = int(2, 3);
+      const d = int(2, 3);
+      const e = int(2, 3);
+      const p = pick([2, 2, 3, 3, 4, 5]);
+      const q = pick([2, 2, 3, 3, 4, 5]);
+      const r = pick([2, 2, 3, 3, 4, 5]);
+      const total = rootA + rootB + Math.pow(c, p) + Math.pow(d, q) + Math.pow(e, r);
       return buildEquation([
         tok('function', 'sin'), tok('lparen', '(', false), tok('number', 'pi'), tok('operator', '÷'), tok('number', '2'), tok('rparen', ')', false),
         tok('operator', '×'),
@@ -394,47 +417,59 @@ function genExpert(rng) {
         tok('operator', '×'),
         tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(b)), tok('rparen', ')', false),
         tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', String(p)),
         tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(d)), tok('operator', '^'), tok('number', String(q)),
         tok('operator', '+'),
-        tok('number', String(e)), tok('operator', '^'), tok('number', '2')
+        tok('number', String(e)), tok('operator', '^'), tok('number', String(r))
       ], total);
     }
     case 'cube_sq_cube_sq_cube_sq_sq': {
+      // 7 个幂项；a/c/e（原立方槽）指数 2-4，b/d/f/g（原平方槽）指数 2-5
       const a = int(2, 3);
-      const b = int(2, 4);
+      const b = int(2, 3);
       const c = int(2, 3);
-      const d = int(2, 4);
+      const d = int(2, 3);
       const e = int(2, 3);
-      const f = int(2, 4);
-      const g = int(2, 4);
-      const total = a * a * a + b * b + c * c * c + d * d + e * e * e + f * f + g * g;
+      const f = int(2, 3);
+      const g = int(2, 3);
+      const p = pick([2, 2, 3, 3, 4]);
+      const q = pick([2, 2, 3, 3, 4, 5]);
+      const r = pick([2, 2, 3, 3, 4]);
+      const s = pick([2, 2, 3, 3, 4, 5]);
+      const t = pick([2, 2, 3, 3, 4]);
+      const u = pick([2, 2, 3, 3, 4, 5]);
+      const v = pick([2, 2, 3, 3, 4, 5]);
+      const total = Math.pow(a, p) + Math.pow(b, q) + Math.pow(c, r) + Math.pow(d, s) + Math.pow(e, t) + Math.pow(f, u) + Math.pow(g, v);
       return buildEquation([
-        tok('number', String(a)), tok('operator', '^'), tok('number', '3'),
+        tok('number', String(a)), tok('operator', '^'), tok('number', String(p)),
         tok('operator', '+'),
-        tok('number', String(b)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(b)), tok('operator', '^'), tok('number', String(q)),
         tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', '3'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', String(r)),
         tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(d)), tok('operator', '^'), tok('number', String(s)),
         tok('operator', '+'),
-        tok('number', String(e)), tok('operator', '^'), tok('number', '3'),
+        tok('number', String(e)), tok('operator', '^'), tok('number', String(t)),
         tok('operator', '+'),
-        tok('number', String(f)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(f)), tok('operator', '^'), tok('number', String(u)),
         tok('operator', '+'),
-        tok('number', String(g)), tok('operator', '^'), tok('number', '2')
+        tok('number', String(g)), tok('operator', '^'), tok('number', String(v))
       ], total);
     }
     case 'sin_sqrt_log_cube_sq_cube_sq': {
-      // sin(pi÷2)=1, log(1000)=3
+      // sin(pi÷2)=1, log(1000)=3；b/d（立方槽）指数 2-4，c/e（平方槽）指数 2-5
       const a = pick(squares);
       const root = Math.sqrt(a);
       const b = int(2, 3);
-      const c = int(2, 4);
+      const c = int(2, 3);
       const d = int(2, 3);
-      const e = int(2, 4);
-      const total = 1 + root + 3 + b * b * b + c * c + d * d * d + e * e;
+      const e = int(2, 3);
+      const p = pick([2, 2, 3, 3, 4]);
+      const q = pick([2, 2, 3, 3, 4, 5]);
+      const r = pick([2, 2, 3, 3, 4]);
+      const s = pick([2, 2, 3, 3, 4, 5]);
+      const total = 1 + root + 3 + Math.pow(b, p) + Math.pow(c, q) + Math.pow(d, r) + Math.pow(e, s);
       return buildEquation([
         tok('function', 'sin'), tok('lparen', '(', false), tok('number', 'pi'), tok('operator', '÷'), tok('number', '2'), tok('rparen', ')', false),
         tok('operator', '+'),
@@ -442,25 +477,29 @@ function genExpert(rng) {
         tok('operator', '+'),
         tok('function', 'log'), tok('lparen', '(', false), tok('number', '1000'), tok('rparen', ')', false),
         tok('operator', '+'),
-        tok('number', String(b)), tok('operator', '^'), tok('number', '3'),
+        tok('number', String(b)), tok('operator', '^'), tok('number', String(p)),
         tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', String(q)),
         tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', '3'),
+        tok('number', String(d)), tok('operator', '^'), tok('number', String(r)),
         tok('operator', '+'),
-        tok('number', String(e)), tok('operator', '^'), tok('number', '2')
+        tok('number', String(e)), tok('operator', '^'), tok('number', String(s))
       ], total);
     }
     case 'sin_cos_log_sqrt_cube_sq_cube_sq_sq': {
-      // sin(pi÷2)=1, cos(0)=1, log(1000)=3
+      // sin(pi÷2)=1, cos(0)=1, log(1000)=3；b/d（立方槽）指数 2-4，c/e（平方槽）指数 2-5
       const a = pick(squares);
       const root = Math.sqrt(a);
       const b = int(2, 3);
-      const c = int(2, 4);
+      const c = int(2, 3);
       const d = int(2, 3);
-      const e = int(2, 4);
+      const e = int(2, 3);
       const f = int(1, 9);
-      const total = 1 + 1 + 3 + root + b * b * b + c * c + d * d * d + e * e + f;
+      const p = pick([2, 2, 3, 3, 4]);
+      const q = pick([2, 2, 3, 3, 4, 5]);
+      const r = pick([2, 2, 3, 3, 4]);
+      const s = pick([2, 2, 3, 3, 4, 5]);
+      const total = 1 + 1 + 3 + root + Math.pow(b, p) + Math.pow(c, q) + Math.pow(d, r) + Math.pow(e, s) + f;
       return buildEquation([
         tok('function', 'sin'), tok('lparen', '(', false), tok('number', 'pi'), tok('operator', '÷'), tok('number', '2'), tok('rparen', ')', false),
         tok('operator', '+'),
@@ -470,13 +509,13 @@ function genExpert(rng) {
         tok('operator', '+'),
         tok('function', 'sqrt'), tok('lparen', '(', false), tok('number', String(a)), tok('rparen', ')', false),
         tok('operator', '+'),
-        tok('number', String(b)), tok('operator', '^'), tok('number', '3'),
+        tok('number', String(b)), tok('operator', '^'), tok('number', String(p)),
         tok('operator', '+'),
-        tok('number', String(c)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(c)), tok('operator', '^'), tok('number', String(q)),
         tok('operator', '+'),
-        tok('number', String(d)), tok('operator', '^'), tok('number', '3'),
+        tok('number', String(d)), tok('operator', '^'), tok('number', String(r)),
         tok('operator', '+'),
-        tok('number', String(e)), tok('operator', '^'), tok('number', '2'),
+        tok('number', String(e)), tok('operator', '^'), tok('number', String(s)),
         tok('operator', '+'),
         tok('number', String(f))
       ], total);

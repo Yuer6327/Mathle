@@ -9,7 +9,7 @@ import { validateGuess } from './validate.js';
 
 const GAME_TIMEOUT_MS = 10 * 60 * 1000; // 全局时限 10 分钟
 const COOP_TURN_MS = 60 * 1000;         // 合作单步时限 60s，超时自动过回合
-const SLOT_RETRY = 20;                  // 对抗式下两题槽位数对齐的最大尝试次数
+const SLOT_RETRY = 40;                  // 对抗式下两题槽位数对齐的最大尝试次数（极难等式长度差异大，20 次成功率仅 ~96%）
 const DIFFICULTIES = ['beginner', 'easy', 'medium', 'hard', 'expert'];
 const PRIVATE_MAX_PLAYERS = 8;          // 好友房间人数上限
 const CODE_LEN = 6;
