@@ -101,7 +101,7 @@ export const SYMBOL_DISPLAY = {
   'sin': 'sin',
   'cos': 'cos',
   'tan': 'tan',
-  'log': 'log'
+  'log': 'lg' // 以 10 为底的对数，显示为 lg 更清晰；内部符号仍为 'log'
 };
 
 // 符号类型分类
