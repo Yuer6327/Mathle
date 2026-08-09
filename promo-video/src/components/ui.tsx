@@ -1,9 +1,17 @@
 import React from 'react';
-import {AbsoluteFill, Easing, interpolate, useCurrentFrame} from 'remotion';
+import {AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig} from 'remotion';
 import {C} from '../theme';
 import {sans} from '../fonts';
 
-// 通用出现动画：帧区间内淡入 + 轻微上浮
+// 把当前帧归一化到 30fps 参考系：所有场景动画关键帧按 30fps 写，
+// 60fps 下由本钩子换算，动画时长（真实秒数）保持不变、且逐帧更平滑。
+export function useNormFrame(): number {
+  const {fps} = useVideoConfig();
+  const frame = useCurrentFrame();
+  return frame / (fps / 30);
+}
+
+// 通用出现动画：帧区间内淡入 + 轻微上浮（frame 传 30fps 参考帧）
 export function appear(frame: number, start: number, duration = 12, y = 24) {
   const opacity = interpolate(frame, [start, start + duration], [0, 1], {
     extrapolateLeft: 'clamp',

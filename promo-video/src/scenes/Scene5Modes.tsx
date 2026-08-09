@@ -1,6 +1,6 @@
 import React from 'react';
-import {interpolate, useCurrentFrame} from 'remotion';
-import {SceneFrame} from '../components/ui';
+import {interpolate} from 'remotion';
+import {SceneFrame, useNormFrame} from '../components/ui';
 import {Kicker, Headline, appear} from '../components/blocks';
 import {C} from '../theme';
 import {sans} from '../fonts';
@@ -12,8 +12,8 @@ const MODES = [
 ];
 
 export const Scene5Modes: React.FC = () => {
-  const frame = useCurrentFrame();
-  const subIn = appear(frame, 120, 14, 20);
+  const frame = useNormFrame();
+  const subIn = appear(frame, 108, 14, 20);
 
   return (
     <SceneFrame>

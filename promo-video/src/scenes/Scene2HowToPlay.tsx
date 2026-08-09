@@ -1,6 +1,6 @@
 import React from 'react';
-import {interpolate, useCurrentFrame} from 'remotion';
-import {SceneFrame} from '../components/ui';
+import {interpolate} from 'remotion';
+import {SceneFrame, useNormFrame} from '../components/ui';
 import {Kicker, Headline, Sub, Tile, Chip, appear} from '../components/blocks';
 import {C} from '../theme';
 
@@ -17,7 +17,7 @@ const SLOTS = [
 const POOL = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '−', '×', '÷', '^', '√'];
 
 export const Scene2HowToPlay: React.FC = () => {
-  const frame = useCurrentFrame();
+  const frame = useNormFrame();
   const size = 96;
 
   const chips = appear(frame, 118, 14, 20);

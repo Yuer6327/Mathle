@@ -1,6 +1,5 @@
 import React from 'react';
-import {useCurrentFrame} from 'remotion';
-import {SceneFrame} from '../components/ui';
+import {SceneFrame, useNormFrame} from '../components/ui';
 import {Kicker, Headline, Chip, appear} from '../components/blocks';
 import {C} from '../theme';
 import {sans} from '../fonts';
@@ -52,7 +51,7 @@ const LEVELS: {
 ];
 
 export const Scene4Difficulty: React.FC = () => {
-  const frame = useCurrentFrame();
+  const frame = useNormFrame();
   const subIn = appear(frame, 10, 14, 20);
 
   return (

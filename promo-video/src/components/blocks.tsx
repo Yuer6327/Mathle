@@ -1,8 +1,8 @@
 import React from 'react';
-import {interpolate, useCurrentFrame} from 'remotion';
+import {interpolate} from 'remotion';
 import {C} from '../theme';
 import {sans, mono} from '../fonts';
-import {appear} from './ui';
+import {appear, useNormFrame} from './ui';
 
 export {appear};
 
@@ -12,7 +12,7 @@ export const Kicker: React.FC<{children: React.ReactNode; start?: number; color?
   start = 0,
   color = C.text3,
 }) => {
-  const frame = useCurrentFrame();
+  const frame = useNormFrame();
   const a = appear(frame, start);
   return (
     <div
@@ -34,7 +34,7 @@ export const Kicker: React.FC<{children: React.ReactNode; start?: number; color?
 
 // 场景主标题
 export const Headline: React.FC<{children: React.ReactNode; start?: number}> = ({children, start = 0}) => {
-  const frame = useCurrentFrame();
+  const frame = useNormFrame();
   const a = appear(frame, start, 14, 30);
   return (
     <div
@@ -56,7 +56,7 @@ export const Headline: React.FC<{children: React.ReactNode; start?: number}> = (
 
 // 场景副标题
 export const Sub: React.FC<{children: React.ReactNode; start?: number}> = ({children, start = 0}) => {
-  const frame = useCurrentFrame();
+  const frame = useNormFrame();
   const a = appear(frame, start);
   return (
     <div
@@ -85,7 +85,13 @@ export const Tile: React.FC<{
   color?: string; // 反馈色
   size?: number;
 }> = ({symbol, kind, color, size = 92}) => {
-  const font = symbol && symbol.length > 1 ? size * 0.5 : size * 0.56;
+  // 字号自适应：长符号（sin/cos/abs 等）缩小到能放进方块，避免溢出
+  const font = symbol
+    ? Math.min(
+        symbol.length > 1 ? size * 0.5 : size * 0.56,
+        (size - 10) / (symbol.length * 0.62)
+      )
+    : size * 0.56;
 
   if (kind === 'equal') {
     return (
@@ -157,7 +163,7 @@ export const EqRow: React.FC<{
   gap?: number;
   size?: number;
 }> = ({tokens, start = 0, gap = 10, size = 92}) => {
-  const frame = useCurrentFrame();
+  const frame = useNormFrame();
   return (
     <div style={{display: 'flex', alignItems: 'center', gap, justifyContent: 'center'}}>
       {tokens.map((t, i) => {

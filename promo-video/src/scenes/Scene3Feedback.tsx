@@ -1,6 +1,6 @@
 import React from 'react';
-import {interpolate, useCurrentFrame} from 'remotion';
-import {SceneFrame} from '../components/ui';
+import {interpolate} from 'remotion';
+import {SceneFrame, useNormFrame} from '../components/ui';
 import {Kicker, Headline, Tile, appear} from '../components/blocks';
 import {C} from '../theme';
 import {sans} from '../fonts';
@@ -32,7 +32,7 @@ const LEGEND = [
 ];
 
 export const Scene3Feedback: React.FC = () => {
-  const frame = useCurrentFrame();
+  const frame = useNormFrame();
   const answerIn = appear(frame, 42, 14, 18);
   const legendIn = appear(frame, 150, 14, 20);
   const answerSize = 64;

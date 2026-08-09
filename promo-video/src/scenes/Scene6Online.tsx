@@ -1,6 +1,6 @@
 import React from 'react';
-import {interpolate, useCurrentFrame} from 'remotion';
-import {SceneFrame} from '../components/ui';
+import {interpolate} from 'remotion';
+import {SceneFrame, useNormFrame} from '../components/ui';
 import {Kicker, Headline, appear} from '../components/blocks';
 import {C} from '../theme';
 import {sans, mono} from '../fonts';
@@ -12,7 +12,7 @@ const FEATURES = [
 ];
 
 export const Scene6Online: React.FC = () => {
-  const frame = useCurrentFrame();
+  const frame = useNormFrame();
   const barIn = appear(frame, 150, 14, 24);
   const dotPulse = interpolate(frame % 50, [0, 25, 50], [0.35, 1, 0.35]);
 

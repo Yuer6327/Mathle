@@ -1,6 +1,6 @@
 import React from 'react';
-import {Easing, interpolate, useCurrentFrame} from 'remotion';
-import {SceneFrame} from '../components/ui';
+import {Easing, interpolate} from 'remotion';
+import {SceneFrame, useNormFrame} from '../components/ui';
 import {C} from '../theme';
 import {sans} from '../fonts';
 
@@ -12,7 +12,7 @@ const CHARS = WORD.split('').map((ch, i) => ({
 }));
 
 export const Scene1Title: React.FC = () => {
-  const frame = useCurrentFrame();
+  const frame = useNormFrame();
 
   const fadeIn = interpolate(frame, [10, 30], [0, 1], {
     extrapolateLeft: 'clamp',

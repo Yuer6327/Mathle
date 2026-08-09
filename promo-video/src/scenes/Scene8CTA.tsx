@@ -1,6 +1,6 @@
 import React from 'react';
-import {interpolate, useCurrentFrame} from 'remotion';
-import {SceneFrame} from '../components/ui';
+import {interpolate} from 'remotion';
+import {SceneFrame, useNormFrame} from '../components/ui';
 import {Kicker, Chip, appear} from '../components/blocks';
 import {C} from '../theme';
 import {mono, sans} from '../fonts';
@@ -9,7 +9,7 @@ const URL = 'wordle.yuer6327.top';
 const PILLS = ['5 档难度', '实时对战', '排行榜'];
 
 export const Scene8CTA: React.FC = () => {
-  const frame = useCurrentFrame();
+  const frame = useNormFrame();
   const subIn = appear(frame, 60, 14, 20);
   const pillsIn = appear(frame, 76, 14, 20);
   const glowPulse = interpolate(frame % 70, [0, 35, 70], [0.45, 0.85, 0.45]);
