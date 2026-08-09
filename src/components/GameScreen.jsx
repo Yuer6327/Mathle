@@ -112,7 +112,7 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
   if (!game.equation) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-neutral-500 animate-pulse">加载中...</div>
+        <div className="text-neutral-400 animate-pulse">加载中...</div>
       </div>
     );
   }
@@ -123,15 +123,15 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
   return (
     <div className="min-h-screen flex flex-col bg-neutral-950">
       {/* 顶栏 */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
-        <button onClick={onExit} className="text-neutral-500 hover:text-neutral-200 transition">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-700">
+        <button onClick={onExit} className="text-neutral-400 hover:text-neutral-200 transition">
           ← 返回
         </button>
         <div className="flex items-center gap-3">
           <span className={`font-bold text-sm ${DIFFICULTY_COLORS[difficulty]}`}>
             {DIFFICULTY_LABELS[difficulty]}
           </span>
-          <span className="text-sm text-neutral-500">
+          <span className="text-sm text-neutral-400">
             {mode === 'bot' ? '人机' : mode === 'solo' ? '单人' : mode}
           </span>
         </div>
@@ -145,13 +145,13 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3 max-w-md mx-auto w-full">
         {/* 提示行 */}
         {message && (
-          <div className="text-center text-sm text-neutral-300 bg-neutral-900 border border-neutral-800 rounded-lg py-1.5 animate-pop">
+          <div className="text-center text-sm text-neutral-300 bg-neutral-900 border border-neutral-700 rounded-lg py-1.5 animate-pop">
             {message}
           </div>
         )}
 
         {/* 等式板 */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
+        <div className="bg-neutral-900 border border-neutral-700 rounded-2xl p-4">
           <EquationBoard
             equation={game.equation}
             currentGuess={game.currentGuess}
@@ -163,12 +163,12 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
 
         {/* 人机模式：显示 Bot 状态 */}
         {showBotInfo && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg">
-            <Icon name="cpu" className="w-4 h-4 text-neutral-500" />
+          <div className="flex items-center gap-2 px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg">
+            <Icon name="cpu" className="w-4 h-4 text-neutral-400" />
             <span className="text-sm text-neutral-200">
               {game.botThinking ? 'Bot 思考中...' : 'Bot 等你出招'}
             </span>
-            <span className="text-xs text-neutral-500 ml-auto">
+            <span className="text-xs text-neutral-400 ml-auto">
               Bot 步数: {game.botHistory.length}
             </span>
           </div>
@@ -176,14 +176,14 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
 
         {/* Bot 历史猜测 */}
         {showBotInfo && game.botHistory.length > 0 && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3">
-            <div className="text-xs text-neutral-500 mb-1.5">对手猜测：</div>
+          <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-3">
+            <div className="text-xs text-neutral-400 mb-1.5">对手猜测：</div>
             <AttemptList history={game.botHistory} maxSlots={answer.length} title="" />
           </div>
         )}
 
         {/* 玩家历史猜测 */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3">
+        <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-3">
           <AttemptList history={game.history} maxSlots={answer.length} title="你的猜测" />
         </div>
 
@@ -194,7 +194,7 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
             disabled={game.hintUsed}
             className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition border ${
               game.hintUsed
-                ? 'border-neutral-800 bg-neutral-900 text-neutral-600'
+                ? 'border-neutral-700 bg-neutral-900 text-neutral-400'
                 : 'border-neutral-700 bg-neutral-800 text-neutral-200 hover:bg-neutral-700'
             }`}
           >
@@ -203,7 +203,7 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
           </button>
           <button
             onClick={() => game.newGame()}
-            className="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-200 px-3 py-1.5 transition"
+            className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-neutral-200 px-3 py-1.5 transition"
           >
             <Icon name="refresh" className="w-4 h-4" />
             换题
@@ -212,7 +212,7 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
       </div>
 
       {/* 底部输入区 */}
-      <div className="border-t border-neutral-800 px-3 py-3 bg-neutral-900 space-y-2 max-w-md mx-auto w-full">
+      <div className="border-t border-neutral-700 px-3 py-3 bg-neutral-900 space-y-2 max-w-md mx-auto w-full">
         <SymbolPicker
           symbols={symbols}
           onPick={handlePick}
@@ -231,7 +231,7 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
             className={`flex-[2] py-2.5 rounded-lg font-bold transition ${
               allFilled && game.status === 'playing'
                 ? 'bg-neutral-100 text-neutral-950 hover:bg-neutral-200 active:scale-[0.98]'
-                : 'bg-neutral-800 text-neutral-600 cursor-not-allowed'
+                : 'bg-neutral-800 text-neutral-400 cursor-not-allowed'
             }`}
           >
             提交猜测

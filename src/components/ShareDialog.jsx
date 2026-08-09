@@ -122,7 +122,7 @@ export default function ShareDialog({ open, onClose, history, answer, difficulty
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 max-w-md w-full space-y-4" onClick={e => e.stopPropagation()}>
+      <div className="bg-neutral-900 border border-neutral-700 rounded-2xl p-6 max-w-md w-full space-y-4" onClick={e => e.stopPropagation()}>
         <h2 className="text-xl font-bold text-center text-neutral-100">
           {won ? '🎉 恭喜通关！' : '💀 再接再厉！'}
         </h2>

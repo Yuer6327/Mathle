@@ -5,7 +5,7 @@ import { SYMBOL_DISPLAY, FEEDBACK_COLORS } from '../lib/constants.js';
 export default function AttemptList({ history, maxSlots, title = '历史猜测' }) {
   if (!history || history.length === 0) {
     return (
-      <div className="text-center text-sm text-neutral-600 py-2">
+      <div className="text-center text-sm text-neutral-400 py-2">
         {title}：暂无记录
       </div>
     );
@@ -15,7 +15,7 @@ export default function AttemptList({ history, maxSlots, title = '历史猜测' 
     <div className="space-y-1.5">
       {history.map((entry, rowIdx) => (
         <div key={rowIdx} className="flex items-center gap-2">
-          <span className="text-xs text-neutral-600 w-6 text-right">#{rowIdx + 1}</span>
+          <span className="text-xs text-neutral-400 w-6 text-right">#{rowIdx + 1}</span>
           <div className="flex flex-wrap gap-1 items-center">
             {entry.guess.map((sym, i) => (
               <div

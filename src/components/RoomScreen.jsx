@@ -68,11 +68,11 @@ export default function RoomScreen({ difficulty, create = false, code = '', onEx
   if (game.conn === 'connecting' || game.conn === 'closed') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 bg-neutral-950">
-        <button onClick={handleExit} className="absolute top-4 left-4 text-neutral-500 hover:text-neutral-200 transition">
+        <button onClick={handleExit} className="absolute top-4 left-4 text-neutral-400 hover:text-neutral-200 transition">
           ← 返回
         </button>
         {game.conn === 'connecting' && !game.connError && (
-          <div className="text-neutral-500 animate-pulse">连接联机服务器中...</div>
+          <div className="text-neutral-400 animate-pulse">连接联机服务器中...</div>
         )}
         {(game.conn === 'closed' || game.connError) && (
           <div className="text-center space-y-3">
@@ -93,8 +93,8 @@ export default function RoomScreen({ difficulty, create = false, code = '', onEx
   if (game.conn === 'lobby') {
     return (
       <div className="min-h-screen flex flex-col bg-neutral-950">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
-          <button onClick={handleExit} className="text-neutral-500 hover:text-neutral-200 transition">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-700">
+          <button onClick={handleExit} className="text-neutral-400 hover:text-neutral-200 transition">
             ← 返回
           </button>
           <div className="flex items-center gap-3">
@@ -107,7 +107,7 @@ export default function RoomScreen({ difficulty, create = false, code = '', onEx
 
         <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 max-w-md mx-auto w-full">
           <div className="text-center">
-            <div className="text-sm text-neutral-500">房间号</div>
+            <div className="text-sm text-neutral-400">房间号</div>
             <div className="text-5xl font-extrabold tracking-[0.3em] text-neutral-100 my-3 font-mono">
               {game.roomCode}
             </div>
@@ -125,7 +125,7 @@ export default function RoomScreen({ difficulty, create = false, code = '', onEx
                 {copied ? '已复制' : '复制邀请链接'}
               </button>
             </div>
-            <p className="text-xs text-neutral-500 mt-2">好友输入房号即可加入，最多 8 人</p>
+            <p className="text-xs text-neutral-400 mt-2">好友输入房号即可加入，最多 8 人</p>
           </div>
 
           {game.connError && (
@@ -133,16 +133,16 @@ export default function RoomScreen({ difficulty, create = false, code = '', onEx
           )}
 
           {/* 玩家列表 */}
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
-            <div className="text-sm font-semibold text-neutral-500 mb-2">
+          <div className="bg-neutral-900 border border-neutral-700 rounded-2xl p-4">
+            <div className="text-sm font-semibold text-neutral-400 mb-2">
               玩家（{game.players.length}）
             </div>
             <div className="space-y-2">
               {game.players.map((p) => (
                 <div key={p.id} className="flex items-center gap-2">
-                  <Icon name="person" className="w-4 h-4 text-neutral-500 shrink-0" />
+                  <Icon name="person" className="w-4 h-4 text-neutral-400 shrink-0" />
                   <span className="font-medium text-neutral-100">{p.nickname}</span>
-                  {p.id === game.myId && <span className="text-xs text-neutral-500">（我）</span>}
+                  {p.id === game.myId && <span className="text-xs text-neutral-400">（我）</span>}
                   {p.id === game.hostId && (
                     <span className="text-xs px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">房主</span>
                   )}
@@ -150,7 +150,7 @@ export default function RoomScreen({ difficulty, create = false, code = '', onEx
               ))}
             </div>
             {game.players.length < 2 && (
-              <div className="text-center text-sm text-neutral-500 mt-3 animate-pulse">
+              <div className="text-center text-sm text-neutral-400 mt-3 animate-pulse">
                 等待好友加入...
               </div>
             )}
@@ -163,13 +163,13 @@ export default function RoomScreen({ difficulty, create = false, code = '', onEx
               className={`w-full py-3 rounded-xl font-bold transition ${
                 game.players.length >= 2
                   ? 'bg-neutral-100 text-neutral-950 hover:bg-neutral-200 active:scale-[0.98]'
-                  : 'bg-neutral-800 text-neutral-600 cursor-not-allowed'
+                  : 'bg-neutral-800 text-neutral-400 cursor-not-allowed'
               }`}
             >
               {game.players.length >= 2 ? '开始游戏' : `还需 ${2 - game.players.length} 人`}
             </button>
           ) : (
-            <div className="text-center text-sm text-neutral-500 animate-pulse">
+            <div className="text-center text-sm text-neutral-400 animate-pulse">
               等待房主开始游戏...
             </div>
           )}
@@ -181,27 +181,27 @@ export default function RoomScreen({ difficulty, create = false, code = '', onEx
   // ── 对局进行中 / 结算 ──
   return (
     <div className="min-h-screen flex flex-col bg-neutral-950">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
-        <button onClick={handleExit} className="text-neutral-500 hover:text-neutral-200 transition">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-700">
+        <button onClick={handleExit} className="text-neutral-400 hover:text-neutral-200 transition">
           ← 返回
         </button>
         <div className="flex items-center gap-3">
           <span className={`font-bold text-sm ${DIFFICULTY_COLORS[difficulty]}`}>
             {DIFFICULTY_LABELS[difficulty]} 合作
           </span>
-          <span className="text-xs text-neutral-500 font-mono">房 {game.roomCode}</span>
+          <span className="text-xs text-neutral-400 font-mono">房 {game.roomCode}</span>
         </div>
         <Timer startTime={game.startTime} />
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3 max-w-md mx-auto w-full">
         {/* 玩家 / 回合 */}
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-800 flex-wrap">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-700 flex-wrap">
           {game.players.map((p, i) => (
             <span key={p.id} className={`text-xs px-2 py-1 rounded-full ${
               i === game.turnIndex && game.status === 'playing'
                 ? 'bg-neutral-100 text-neutral-950 font-semibold'
-                : 'bg-neutral-800 text-neutral-500'
+                : 'bg-neutral-800 text-neutral-400'
             }`}>
               {p.nickname}{i === game.turnIndex && game.status === 'playing' ? ' · 猜' : ''}
             </span>
@@ -209,13 +209,13 @@ export default function RoomScreen({ difficulty, create = false, code = '', onEx
         </div>
 
         {game.notice && (
-          <div className="text-center text-sm text-neutral-300 bg-neutral-900 border border-neutral-800 rounded-lg py-1.5">
+          <div className="text-center text-sm text-neutral-300 bg-neutral-900 border border-neutral-700 rounded-lg py-1.5">
             {game.notice}
           </div>
         )}
 
         {/* 等式板 */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
+        <div className="bg-neutral-900 border border-neutral-700 rounded-2xl p-4">
           <EquationBoard
             equation={game.equation}
             currentGuess={game.currentGuess}
@@ -226,7 +226,7 @@ export default function RoomScreen({ difficulty, create = false, code = '', onEx
         </div>
 
         {/* 共同猜测 */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3">
+        <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-3">
           <AttemptList
             history={game.history}
             maxSlots={slotCountFor(game)}
@@ -241,13 +241,13 @@ export default function RoomScreen({ difficulty, create = false, code = '', onEx
             {game.status === 'lost' && '挑战失败'}
             {game.status === 'draw' && '平局'}
             {game.status === 'aborted' && '对局取消'}
-            <div className="text-sm font-normal text-neutral-500 mt-1">{game.gameOver.reason}</div>
+            <div className="text-sm font-normal text-neutral-400 mt-1">{game.gameOver.reason}</div>
           </div>
         )}
       </div>
 
       {/* 底部输入区 */}
-      <div className={`border-t border-neutral-800 px-3 py-3 bg-neutral-900 space-y-2 max-w-md mx-auto w-full ${
+      <div className={`border-t border-neutral-700 px-3 py-3 bg-neutral-900 space-y-2 max-w-md mx-auto w-full ${
         !game.myTurn ? 'opacity-60' : ''
       }`}>
         <SymbolPicker
@@ -269,7 +269,7 @@ export default function RoomScreen({ difficulty, create = false, code = '', onEx
             className={`flex-[2] py-2.5 rounded-lg font-bold transition ${
               allFilled && canPlay
                 ? 'bg-neutral-100 text-neutral-950 hover:bg-neutral-200 active:scale-[0.98]'
-                : 'bg-neutral-800 text-neutral-600 cursor-not-allowed'
+                : 'bg-neutral-800 text-neutral-400 cursor-not-allowed'
             }`}
           >
             {!game.myTurn ? `等待 ${currentPlayerName}...` : '提交猜测'}

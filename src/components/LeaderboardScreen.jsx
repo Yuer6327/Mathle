@@ -7,7 +7,7 @@ const RANK_BADGES = [
   'bg-neutral-100 text-neutral-950', // 第 1 名
   'bg-neutral-300 text-neutral-800', // 第 2 名
   'bg-neutral-600 text-neutral-100', // 第 3 名
-  'bg-neutral-800 text-neutral-500'  // 其余
+  'bg-neutral-800 text-neutral-400'  // 其余
 ];
 
 export default function LeaderboardScreen({ onBack }) {
@@ -26,8 +26,8 @@ export default function LeaderboardScreen({ onBack }) {
 
   return (
     <div className="min-h-screen bg-neutral-950">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
-        <button onClick={onBack} className="text-neutral-500 hover:text-neutral-200 transition">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-700">
+        <button onClick={onBack} className="text-neutral-400 hover:text-neutral-200 transition">
           ← 返回
         </button>
         <h1 className="font-bold text-neutral-100">排行榜</h1>
@@ -44,7 +44,7 @@ export default function LeaderboardScreen({ onBack }) {
               className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition border ${
                 difficulty === d
                   ? DIFFICULTY_ACTIVE[d]
-                  : 'border-neutral-800 bg-neutral-900 text-neutral-500 hover:text-neutral-300'
+                  : 'border-neutral-700 bg-neutral-900 text-neutral-400 hover:text-neutral-300'
               }`}
             >
               {DIFFICULTY_LABELS[d]}
@@ -54,9 +54,9 @@ export default function LeaderboardScreen({ onBack }) {
 
         {/* 排行榜列表 */}
         {loading ? (
-          <div className="text-center py-8 text-neutral-500">加载中...</div>
+          <div className="text-center py-8 text-neutral-400">加载中...</div>
         ) : entries.length === 0 ? (
-          <div className="text-center py-8 text-neutral-500">
+          <div className="text-center py-8 text-neutral-400">
             暂无数据，快来成为第一名！
           </div>
         ) : (
@@ -69,7 +69,7 @@ export default function LeaderboardScreen({ onBack }) {
                   className={`flex items-center gap-3 p-3 rounded-xl border ${
                     isMe
                       ? 'bg-neutral-800/60 border-neutral-700'
-                      : 'bg-neutral-900 border-neutral-800'
+                      : 'bg-neutral-900 border-neutral-700'
                   }`}
                 >
                   {/* 排名 */}
@@ -83,7 +83,7 @@ export default function LeaderboardScreen({ onBack }) {
                       {entry.nickname}
                       {isMe && <span className="ml-1 text-xs text-neutral-400">(你)</span>}
                     </div>
-                    <div className="text-xs text-neutral-500">
+                    <div className="text-xs text-neutral-400">
                       {entry.totalWins}胜 / {entry.totalGames}局 · 胜率 {entry.winRate}
                     </div>
                   </div>
@@ -93,7 +93,7 @@ export default function LeaderboardScreen({ onBack }) {
                     <div className="font-bold text-neutral-100">
                       {entry.bestSteps ? `${entry.bestSteps}步` : '-'}
                     </div>
-                    <div className="text-xs text-neutral-500">
+                    <div className="text-xs text-neutral-400">
                       {entry.bestTime ? `${Math.floor(entry.bestTime / 60)}:${String(entry.bestTime % 60).padStart(2, '0')}` : '-'}
                     </div>
                   </div>
@@ -111,7 +111,7 @@ export default function LeaderboardScreen({ onBack }) {
         )}
 
         {!user && (
-          <div className="text-center text-sm text-neutral-500 pt-4">
+          <div className="text-center text-sm text-neutral-400 pt-4">
             登录后可上榜
           </div>
         )}

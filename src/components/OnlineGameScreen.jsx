@@ -70,11 +70,11 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
   if (game.conn !== 'matched') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 bg-neutral-950">
-        <button onClick={handleExit} className="absolute top-4 left-4 text-neutral-500 hover:text-neutral-200 transition">
+        <button onClick={handleExit} className="absolute top-4 left-4 text-neutral-400 hover:text-neutral-200 transition">
           ← 返回
         </button>
         {game.conn === 'connecting' && (
-          <div className="text-neutral-500 animate-pulse">连接联机服务器中...</div>
+          <div className="text-neutral-400 animate-pulse">连接联机服务器中...</div>
         )}
         {game.conn === 'queue' && (
           <>
@@ -113,29 +113,29 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
   return (
     <div className="min-h-screen flex flex-col bg-neutral-950">
       {/* 顶栏 */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
-        <button onClick={handleExit} className="text-neutral-500 hover:text-neutral-200 transition">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-700">
+        <button onClick={handleExit} className="text-neutral-400 hover:text-neutral-200 transition">
           ← 返回
         </button>
         <div className="flex items-center gap-3">
           <span className={`font-bold text-sm ${DIFFICULTY_COLORS[difficulty]}`}>{DIFFICULTY_LABELS[difficulty]}</span>
-          <span className="text-sm text-neutral-500">{MODE_LABEL[mode]}</span>
+          <span className="text-sm text-neutral-400">{MODE_LABEL[mode]}</span>
         </div>
         <Timer startTime={game.startTime} />
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3 max-w-md mx-auto w-full">
         {/* 对手信息 */}
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-800">
-          <Icon name={mode === 'coop' ? 'users' : 'shield'} className="w-4 h-4 text-neutral-500" />
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-700">
+          <Icon name={mode === 'coop' ? 'users' : 'shield'} className="w-4 h-4 text-neutral-400" />
           <span className="text-sm font-medium text-neutral-100">
             {game.opponent.nickname}
           </span>
           {mode === 'pvp' && (
-            <span className="text-xs text-neutral-500 ml-auto">对手步数: {game.opponent.steps}</span>
+            <span className="text-xs text-neutral-400 ml-auto">对手步数: {game.opponent.steps}</span>
           )}
           {mode === 'coop' && (
-            <span className={`text-xs ml-auto ${game.myTurn ? 'text-neutral-100 font-semibold' : 'text-neutral-500'}`}>
+            <span className={`text-xs ml-auto ${game.myTurn ? 'text-neutral-100 font-semibold' : 'text-neutral-400'}`}>
               {game.myTurn ? '轮到你' : '等待对方...'}
             </span>
           )}
@@ -143,13 +143,13 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
 
         {/* 提示 */}
         {game.notice && (
-          <div className="text-center text-sm text-neutral-300 bg-neutral-900 border border-neutral-800 rounded-lg py-1.5">
+          <div className="text-center text-sm text-neutral-300 bg-neutral-900 border border-neutral-700 rounded-lg py-1.5">
             {game.notice}
           </div>
         )}
 
         {/* 等式板 */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
+        <div className="bg-neutral-900 border border-neutral-700 rounded-2xl p-4">
           <EquationBoard
             equation={game.equation}
             currentGuess={game.currentGuess}
@@ -160,7 +160,7 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
         </div>
 
         {/* 历史猜测（coop 共享 / pvp 本人） */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3">
+        <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-3">
           <AttemptList
             history={game.history}
             maxSlots={slotCount}
@@ -175,13 +175,13 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
             {game.status === 'lost' && '你输了'}
             {game.status === 'draw' && '平局'}
             {game.status === 'aborted' && '对局取消'}
-            <div className="text-sm font-normal text-neutral-500 mt-1">{game.gameOver.reason}</div>
+            <div className="text-sm font-normal text-neutral-400 mt-1">{game.gameOver.reason}</div>
           </div>
         )}
       </div>
 
       {/* 底部输入区 */}
-      <div className={`border-t border-neutral-800 px-3 py-3 bg-neutral-900 space-y-2 max-w-md mx-auto w-full ${
+      <div className={`border-t border-neutral-700 px-3 py-3 bg-neutral-900 space-y-2 max-w-md mx-auto w-full ${
         mode === 'coop' && !game.myTurn ? 'opacity-60' : ''
       }`}>
         <SymbolPicker
@@ -203,7 +203,7 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
             className={`flex-[2] py-2.5 rounded-lg font-bold transition ${
               allFilled && canPlay
                 ? 'bg-neutral-100 text-neutral-950 hover:bg-neutral-200 active:scale-[0.98]'
-                : 'bg-neutral-800 text-neutral-600 cursor-not-allowed'
+                : 'bg-neutral-800 text-neutral-400 cursor-not-allowed'
             }`}
           >
             {mode === 'coop' && !game.myTurn ? '等待对方...' : '提交猜测'}
