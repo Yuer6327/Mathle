@@ -10,6 +10,7 @@ import SymbolPicker from './SymbolPicker.jsx';
 import AttemptList from './AttemptList.jsx';
 import Timer from './Timer.jsx';
 import ShareDialog from './ShareDialog.jsx';
+import Icon from './Icons.jsx';
 
 const MODE_LABEL = { pvp: '1v1 对抗', coop: '合作' };
 
@@ -68,26 +69,26 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
   // ── 匹配 / 连接界面 ──
   if (game.conn !== 'matched') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 bg-gray-50 dark:bg-gray-900">
-        <button onClick={handleExit} className="absolute top-4 left-4 text-gray-500 hover:text-gray-700 dark:text-gray-400">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 bg-neutral-950">
+        <button onClick={handleExit} className="absolute top-4 left-4 text-neutral-500 hover:text-neutral-200 transition">
           ← 返回
         </button>
         {game.conn === 'connecting' && (
-          <div className="text-gray-500 animate-pulse">连接联机服务器中...</div>
+          <div className="text-neutral-500 animate-pulse">连接联机服务器中...</div>
         )}
         {game.conn === 'queue' && (
           <>
-            <div className="text-2xl font-bold text-gray-700 dark:text-gray-200">
+            <div className="text-2xl font-bold text-neutral-100">
               正在匹配 {DIFFICULTY_LABELS[difficulty]} {MODE_LABEL[mode]}...
             </div>
             <div className="flex gap-3">
-              <div className="w-3 h-3 rounded-full bg-wgreen animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-3 h-3 rounded-full bg-wyellow animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-3 h-3 rounded-full bg-wred animate-bounce" style={{ animationDelay: '300ms' }} />
+              <div className="w-3 h-3 rounded-full bg-neutral-100 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-3 h-3 rounded-full bg-neutral-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-3 h-3 rounded-full bg-neutral-700 animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
             <button
               onClick={game.cancelFind}
-              className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm hover:bg-gray-300 transition"
+              className="px-4 py-2 rounded-lg bg-neutral-800 text-neutral-200 text-sm hover:bg-neutral-700 transition"
             >
               取消匹配
             </button>
@@ -95,10 +96,10 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
         )}
         {game.connError && (
           <div className="text-center space-y-3">
-            <div className="text-red-500 text-sm">{game.connError}</div>
+            <div className="text-red-400 text-sm">{game.connError}</div>
             <button
               onClick={game.retry}
-              className="px-4 py-2 rounded-lg bg-wgreen text-white text-sm font-semibold hover:bg-wgreenDark transition"
+              className="px-4 py-2 rounded-lg bg-neutral-100 text-neutral-950 text-sm font-semibold hover:bg-neutral-200 transition"
             >
               重试
             </button>
@@ -110,32 +111,31 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
 
   // ── 对局界面 ──
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen flex flex-col bg-neutral-950">
       {/* 顶栏 */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800">
-        <button onClick={handleExit} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
+        <button onClick={handleExit} className="text-neutral-500 hover:text-neutral-200 transition">
           ← 返回
         </button>
         <div className="flex items-center gap-3">
           <span className={`font-bold text-sm ${DIFFICULTY_COLORS[difficulty]}`}>{DIFFICULTY_LABELS[difficulty]}</span>
-          <span className="text-sm text-gray-400">{MODE_LABEL[mode]}</span>
+          <span className="text-sm text-neutral-500">{MODE_LABEL[mode]}</span>
         </div>
         <Timer startTime={game.startTime} />
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3 max-w-md mx-auto w-full">
         {/* 对手信息 */}
-        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
-          mode === 'coop' ? 'bg-green-50 dark:bg-green-900/30' : 'bg-purple-50 dark:bg-purple-900/30'
-        }`}>
-          <span className="text-sm font-medium">
-            {mode === 'coop' ? '🤝' : '⚔️'} {game.opponent.nickname}
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-800">
+          <Icon name={mode === 'coop' ? 'users' : 'shield'} className="w-4 h-4 text-neutral-500" />
+          <span className="text-sm font-medium text-neutral-100">
+            {game.opponent.nickname}
           </span>
           {mode === 'pvp' && (
-            <span className="text-xs text-gray-400 ml-auto">对手步数: {game.opponent.steps}</span>
+            <span className="text-xs text-neutral-500 ml-auto">对手步数: {game.opponent.steps}</span>
           )}
           {mode === 'coop' && (
-            <span className={`text-xs ml-auto ${game.myTurn ? 'text-wgreen font-semibold' : 'text-gray-400'}`}>
+            <span className={`text-xs ml-auto ${game.myTurn ? 'text-neutral-100 font-semibold' : 'text-neutral-500'}`}>
               {game.myTurn ? '轮到你' : '等待对方...'}
             </span>
           )}
@@ -143,13 +143,13 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
 
         {/* 提示 */}
         {game.notice && (
-          <div className="text-center text-sm text-wyellow bg-yellow-50 dark:bg-yellow-900/30 rounded-lg py-1.5">
+          <div className="text-center text-sm text-neutral-300 bg-neutral-900 border border-neutral-800 rounded-lg py-1.5">
             {game.notice}
           </div>
         )}
 
         {/* 等式板 */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
           <EquationBoard
             equation={game.equation}
             currentGuess={game.currentGuess}
@@ -160,7 +160,7 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
         </div>
 
         {/* 历史猜测（coop 共享 / pvp 本人） */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-3">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3">
           <AttemptList
             history={game.history}
             maxSlots={slotCount}
@@ -170,18 +170,18 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
 
         {/* 结算提示 */}
         {game.status !== 'playing' && game.gameOver && (
-          <div className="text-center text-lg font-bold text-gray-700 dark:text-gray-200">
-            {game.status === 'won' && '🎉 你赢了！'}
-            {game.status === 'lost' && '💀 你输了'}
-            {game.status === 'draw' && '🤝 平局'}
+          <div className="text-center text-lg font-bold text-neutral-100">
+            {game.status === 'won' && '你赢了！'}
+            {game.status === 'lost' && '你输了'}
+            {game.status === 'draw' && '平局'}
             {game.status === 'aborted' && '对局取消'}
-            <div className="text-sm font-normal text-gray-400 mt-1">{game.gameOver.reason}</div>
+            <div className="text-sm font-normal text-neutral-500 mt-1">{game.gameOver.reason}</div>
           </div>
         )}
       </div>
 
       {/* 底部输入区 */}
-      <div className={`border-t border-gray-200 dark:border-gray-800 px-3 py-3 bg-white dark:bg-gray-800 space-y-2 max-w-md mx-auto w-full ${
+      <div className={`border-t border-neutral-800 px-3 py-3 bg-neutral-900 space-y-2 max-w-md mx-auto w-full ${
         mode === 'coop' && !game.myTurn ? 'opacity-60' : ''
       }`}>
         <SymbolPicker
@@ -193,17 +193,17 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
           <button
             onClick={game.clearAll}
             disabled={!canPlay}
-            className="flex-1 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium hover:bg-gray-200 transition text-sm disabled:opacity-40"
+            className="flex-1 py-2.5 rounded-lg bg-neutral-800 text-neutral-300 font-medium hover:bg-neutral-700 transition text-sm disabled:opacity-40"
           >
             清空
           </button>
           <button
             onClick={handleSubmit}
             disabled={!allFilled || !canPlay}
-            className={`flex-[2] py-2.5 rounded-lg font-bold text-white transition ${
+            className={`flex-[2] py-2.5 rounded-lg font-bold transition ${
               allFilled && canPlay
-                ? 'bg-wgreen hover:bg-wgreenDark active:scale-95'
-                : 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed'
+                ? 'bg-neutral-100 text-neutral-950 hover:bg-neutral-200 active:scale-[0.98]'
+                : 'bg-neutral-800 text-neutral-600 cursor-not-allowed'
             }`}
           >
             {mode === 'coop' && !game.myTurn ? '等待对方...' : '提交猜测'}

@@ -1,7 +1,7 @@
 import React from 'react';
-import { SYMBOL_DISPLAY, getSymbolType } from '../lib/constants.js';
+import { SYMBOL_DISPLAY } from '../lib/constants.js';
 
-// 底部符号选择器（卡西欧科学计算器风格）
+// 底部符号选择器（黑白灰单色，运算符略亮以区分）
 export default function SymbolPicker({ symbols, onPick, disabled }) {
   const { numbers, operators, functions: funcs } = symbols;
 
@@ -54,20 +54,19 @@ export default function SymbolPicker({ symbols, onPick, disabled }) {
 }
 
 function PickerButton({ display, type, onClick }) {
-  let cls = 'flex items-center justify-center font-semibold rounded-lg transition-all active:scale-90 min-h-[44px] min-w-[44px] text-base ';
+  let cls = 'flex items-center justify-center rounded-lg transition-all active:scale-90 min-h-[44px] min-w-[44px] text-base ';
 
   if (type === 'function') {
-    cls += 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800 px-3 ';
-    if (display.length >= 3) cls += 'px-3 text-sm ';
+    cls += 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700 px-3 text-sm ';
   } else if (type === 'operator') {
-    cls += 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-800 text-xl ';
+    cls += 'bg-neutral-700 text-neutral-100 hover:bg-neutral-600 text-xl ';
   } else {
     // number
     if (display.length > 1) {
       // pi, e
-      cls += 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-200 dark:hover:bg-cyan-800 italic font-serif ';
+      cls += 'bg-neutral-800 text-neutral-200 hover:bg-neutral-700 italic font-serif ';
     } else {
-      cls += 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 ';
+      cls += 'bg-neutral-800 text-neutral-200 hover:bg-neutral-700 ';
     }
   }
 

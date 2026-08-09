@@ -4,14 +4,6 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
-      colors: {
-        wgreen: '#6aaa64',
-        wyellow: '#c9b458',
-        wgray: '#787c7e',
-        wgreenDark: '#4a6a3f',
-        wyellowDark: '#8a7a3a',
-        wgrayDark: '#3a3a3c'
-      },
       animation: {
         'flip': 'flip 0.6s ease forwards',
         'pop': 'pop 0.15s ease',

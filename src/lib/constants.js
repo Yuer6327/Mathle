@@ -11,11 +11,20 @@ export const DIFFICULTY_LABELS = {
 };
 
 export const DIFFICULTY_COLORS = {
-  beginner: 'text-green-600 dark:text-green-400',
-  easy: 'text-blue-600 dark:text-blue-400',
-  medium: 'text-yellow-600 dark:text-yellow-400',
-  hard: 'text-orange-600 dark:text-orange-400',
-  expert: 'text-red-600 dark:text-red-400'
+  beginner: 'text-green-400',
+  easy: 'text-blue-400',
+  medium: 'text-yellow-400',
+  hard: 'text-orange-400',
+  expert: 'text-red-400'
+};
+
+// 难度选中态（难度选择器 / 排行榜 Tab 的“当前项”样式）
+export const DIFFICULTY_ACTIVE = {
+  beginner: 'bg-green-500/15 text-green-300 border-green-400/70',
+  easy: 'bg-blue-500/15 text-blue-300 border-blue-400/70',
+  medium: 'bg-yellow-500/15 text-yellow-300 border-yellow-400/70',
+  hard: 'bg-orange-500/15 text-orange-300 border-orange-400/70',
+  expert: 'bg-red-500/15 text-red-300 border-red-400/70'
 };
 
 // 各难度的符号池（与生成器用到的符号保持一致）
@@ -73,9 +82,9 @@ export const FEEDBACK = {
 };
 
 export const FEEDBACK_COLORS = {
-  correct: 'bg-wgreen text-white dark:bg-wgreenDark',
-  present: 'bg-wyellow text-white dark:bg-wyellowDark',
-  absent: 'bg-wgray text-white dark:bg-wgrayDark'
+  correct: 'bg-green-600 text-white',
+  present: 'bg-yellow-500 text-white',
+  absent: 'bg-neutral-700 text-white'
 };
 
 // 符号显示文本

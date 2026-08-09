@@ -1,5 +1,5 @@
 import React from 'react';
-import { SYMBOL_DISPLAY, getSymbolType, FEEDBACK_COLORS } from '../lib/constants.js';
+import { SYMBOL_DISPLAY, getSymbolType } from '../lib/constants.js';
 
 // 等式板：显示等式（当前猜测行）
 export default function EquationBoard({ equation, currentGuess, onSlotClick, selectedSlot, hintPosition }) {
@@ -13,7 +13,7 @@ export default function EquationBoard({ equation, currentGuess, onSlotClick, sel
           return (
             <span
               key={i}
-              className="text-2xl font-bold text-gray-700 dark:text-gray-300 select-none mx-0.5"
+              className="text-2xl font-bold text-neutral-300 select-none mx-0.5"
               style={{ fontFamily: 'ui-monospace, "SF Mono", monospace' }}
             >
               {token.symbol === '=' ? '=' : token.symbol}
@@ -53,6 +53,7 @@ function Slot({ displaySym, answerSymbol, symbolType, onClick, selected, isHint 
   else if (len === 3) widthCls = 'min-w-[3rem]';
   else widthCls = 'min-w-[2.5rem]';
   const heightCls = 'h-12';
+  const hintCls = isHint ? 'ring-2 ring-green-500/80' : '';
 
   if (!isFilled) {
     // 空槽位
@@ -60,9 +61,9 @@ function Slot({ displaySym, answerSymbol, symbolType, onClick, selected, isHint 
       return (
         <button
           onClick={onClick}
-          className={`flex items-center justify-center rounded-md transition-all duration-150 ${widthCls} ${heightCls} bg-gray-200 dark:bg-gray-700 border-2 ${
-            selected ? 'border-blue-500 scale-105' : 'border-transparent'
-          } ${isHint ? 'ring-2 ring-wgreen ring-offset-1' : ''}`}
+          className={`flex items-center justify-center rounded-md transition-all duration-150 ${widthCls} ${heightCls} bg-neutral-800 border-2 ${
+            selected ? 'border-neutral-100 scale-105' : 'border-transparent'
+          } ${hintCls}`}
         />
       );
     }
@@ -71,8 +72,8 @@ function Slot({ displaySym, answerSymbol, symbolType, onClick, selected, isHint 
       <button
         onClick={onClick}
         className={`flex items-center justify-center rounded-md transition-all duration-150 ${widthCls} ${heightCls} border-b-4 ${
-          selected ? 'border-blue-500 scale-105 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-400 dark:border-gray-600'
-        } ${isHint ? 'ring-2 ring-wgreen ring-offset-1' : ''}`}
+          selected ? 'border-neutral-100 scale-105 bg-neutral-800' : 'border-neutral-600 bg-neutral-900'
+        } ${hintCls}`}
       />
     );
   }
@@ -82,8 +83,8 @@ function Slot({ displaySym, answerSymbol, symbolType, onClick, selected, isHint 
     <button
       onClick={onClick}
       className={`flex items-center justify-center font-bold rounded-md transition-all duration-150 ${widthCls} ${heightCls} ${
-        selected ? 'ring-2 ring-blue-500 scale-105' : ''
-      } bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-2 border-blue-300 dark:border-blue-700`}
+        selected ? 'ring-2 ring-neutral-100 scale-105' : ''
+      } bg-neutral-800 text-neutral-100 border-2 border-neutral-700 ${hintCls}`}
     >
       {displaySym}
     </button>

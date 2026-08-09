@@ -24,8 +24,7 @@ export default function Timer({ startTime, onTimeout, maxSeconds = null }) {
   const isUrgent = remaining !== null && remaining <= maxSeconds * 0.2;
 
   return (
-    <div className={`font-mono text-lg ${isUrgent ? 'text-red-500 animate-pulse' : 'text-gray-600 dark:text-gray-400'}`}>
-      {remaining !== null && <span className="text-xs mr-0.5 opacity-70">⏳</span>}
+    <div className={`font-mono text-lg tabular-nums ${isUrgent ? 'text-red-400 animate-pulse' : 'text-neutral-400'}`}>
       {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
     </div>
   );

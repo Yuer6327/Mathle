@@ -6,7 +6,6 @@ import GameScreen from './components/GameScreen.jsx';
 import RoomScreen from './components/RoomScreen.jsx';
 import StatsScreen from './components/StatsScreen.jsx';
 import LeaderboardScreen from './components/LeaderboardScreen.jsx';
-import { getStats } from './lib/storage.js';
 
 export default function App() {
   return (
@@ -26,11 +25,9 @@ export default function App() {
 
 function MenuWrapper() {
   const navigate = useNavigate();
-  const stats = getStats();
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-neutral-950">
       <MainMenu
-        stats={stats}
         onStart={(difficulty, mode) => navigate(`/game/${difficulty}/${mode}`)}
         onRoomStart={(difficulty, createOrCode) =>
           navigate(

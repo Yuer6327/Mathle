@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { DIFFICULTY_LABELS, DIFFICULTY_COLORS, SLOT_RANGES, SYMBOL_POOLS } from '../lib/constants.js';
-import { getNickname, setNickname, getStats } from '../lib/storage.js';
+import { DIFFICULTY_LABELS, DIFFICULTY_ACTIVE } from '../lib/constants.js';
 import { useAuth } from '../hooks/useAuth.jsx';
+import Icon from './Icons.jsx';
 
 // 主菜单
 export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLeaderboard }) {
@@ -36,7 +36,6 @@ export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLead
     }
   };
 
-  const totalGames = Object.values(getStats()).reduce((sum, s) => sum + (s.total || 0), 0);
   const [gameDiff, setGameDiff] = useState('medium'); // 单人 / 人机难度
   const [onlineDiff, setOnlineDiff] = useState('medium');
 
@@ -52,28 +51,28 @@ export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLead
   };
 
   return (
-    <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-md mx-auto px-4 py-6 space-y-8">
       {/* 标题 */}
-      <div className="text-center pt-4">
-        <h1 className="text-4xl font-extrabold tracking-tight">
-          <span className="text-wgreen">M</span>ath
-          <span className="text-wyellow">W</span>ordle
+      <div className="text-center pt-6">
+        <h1 className="text-4xl font-extrabold tracking-tight text-neutral-100">
+          MathWordle
         </h1>
+        <p className="mt-1.5 text-sm text-neutral-500">数学版 Wordle</p>
       </div>
 
       {/* 用户区域 */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
         {loading ? (
-          <div className="text-center text-sm text-gray-400">加载中...</div>
+          <div className="text-center text-sm text-neutral-500">加载中...</div>
         ) : user ? (
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-sm text-gray-400">已登录</span>
-              <div className="font-bold text-gray-800 dark:text-gray-200">{user.nickname}</div>
+              <span className="text-xs text-neutral-500">已登录</span>
+              <div className="font-bold text-neutral-100">{user.nickname}</div>
             </div>
             <button
               onClick={logout}
-              className="text-sm text-gray-400 hover:text-red-500 transition"
+              className="text-sm text-neutral-500 hover:text-neutral-200 transition"
             >
               退出
             </button>
@@ -81,10 +80,10 @@ export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLead
         ) : authMode ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-gray-700 dark:text-gray-300">
+              <span className="font-semibold text-neutral-100">
                 {authMode === 'login' ? '登录' : '注册'}
               </span>
-              <button onClick={() => setAuthMode(null)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setAuthMode(null)} className="text-neutral-500 hover:text-neutral-200">
                 取消
               </button>
             </div>
@@ -93,7 +92,7 @@ export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLead
               placeholder="昵称"
               value={formName}
               onChange={e => setFormName(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:border-blue-500"
+              className="w-full px-4 py-3 rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
             />
             <input
               type="password"
@@ -101,22 +100,22 @@ export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLead
               value={formPass}
               onChange={e => setFormPass(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:border-blue-500"
+              className="w-full px-4 py-3 rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
             />
-            {authError && <div className="text-sm text-red-500">{authError}</div>}
+            {authError && <div className="text-sm text-red-400">{authError}</div>}
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="w-full py-3 rounded-lg bg-wgreen text-white font-bold hover:bg-wgreenDark transition disabled:opacity-50"
+              className="w-full py-3 rounded-lg bg-neutral-100 text-neutral-950 font-bold hover:bg-neutral-200 transition disabled:opacity-40"
             >
               {submitting ? '处理中...' : (authMode === 'login' ? '登录' : '注册')}
             </button>
             {authMode === 'login' ? (
-              <button onClick={() => setAuthMode('register')} className="text-sm text-blue-500 hover:underline">
+              <button onClick={() => setAuthMode('register')} className="text-sm text-neutral-400 hover:text-neutral-200 underline">
                 没有账号？去注册
               </button>
             ) : (
-              <button onClick={() => setAuthMode('login')} className="text-sm text-blue-500 hover:underline">
+              <button onClick={() => setAuthMode('login')} className="text-sm text-neutral-400 hover:text-neutral-200 underline">
                 已有账号？去登录
               </button>
             )}
@@ -125,13 +124,13 @@ export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLead
           <div className="flex gap-2">
             <button
               onClick={() => setAuthMode('login')}
-              className="flex-1 py-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium hover:bg-blue-100 transition text-sm"
+              className="flex-1 py-2.5 rounded-lg bg-neutral-800 text-neutral-100 font-medium hover:bg-neutral-700 transition text-sm"
             >
               登录
             </button>
             <button
               onClick={() => setAuthMode('register')}
-              className="flex-1 py-2.5 rounded-lg bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-medium hover:bg-green-100 transition text-sm"
+              className="flex-1 py-2.5 rounded-lg bg-neutral-800 text-neutral-100 font-medium hover:bg-neutral-700 transition text-sm"
             >
               注册
             </button>
@@ -140,79 +139,30 @@ export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLead
       </div>
 
       {/* 模式选择 */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm space-y-3">
-        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 text-center">选择模式</h2>
+      <section className="space-y-3">
+        <h2 className="text-xs font-semibold tracking-widest text-neutral-500 text-center">选择模式</h2>
         <DifficultyPicker value={gameDiff} onChange={setGameDiff} />
         <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => onStart(gameDiff, 'solo')}
-            className="px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 hover:bg-blue-100 transition"
-          >
-            <div className="text-lg">🎯</div>
-            <div className="text-sm font-semibold text-blue-700 dark:text-blue-300">单人挑战</div>
-            <div className="text-xs text-gray-400">选难度开始</div>
-          </button>
-          <button
-            onClick={() => onStart(gameDiff, 'bot')}
-            className="px-4 py-3 rounded-xl bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 hover:bg-purple-100 transition"
-          >
-            <div className="text-lg">🤖</div>
-            <div className="text-sm font-semibold text-purple-700 dark:text-purple-300">人机对战</div>
-            <div className="text-xs text-gray-400">挑战 AI</div>
-          </button>
-          <button
-            onClick={onShowStats}
-            className="px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 transition"
-          >
-            <div className="text-lg">📊</div>
-            <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">统计数据</div>
-            <div className="text-xs text-gray-400">查看记录</div>
-          </button>
-          <button
-            onClick={onShowLeaderboard}
-            className="px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 hover:bg-amber-100 transition"
-          >
-            <div className="text-lg">🏆</div>
-            <div className="text-sm font-semibold text-amber-700 dark:text-amber-300">排行榜</div>
-            <div className="text-xs text-gray-400">高手榜</div>
-          </button>
+          <ModeCard icon="target" title="单人挑战" sub="选难度开始" onClick={() => onStart(gameDiff, 'solo')} />
+          <ModeCard icon="cpu" title="人机对战" sub="挑战 AI" onClick={() => onStart(gameDiff, 'bot')} />
+          <ModeCard icon="chart" title="统计数据" sub="查看记录" onClick={onShowStats} />
+          <ModeCard icon="trophy" title="排行榜" sub="高手榜" onClick={onShowLeaderboard} />
         </div>
-      </div>
+      </section>
 
       {/* 联机对战 */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm space-y-4">
-        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 text-center">联机对战 · 实时同步</h2>
+      <section className="space-y-3">
+        <h2 className="text-xs font-semibold tracking-widest text-neutral-500 text-center">联机对战</h2>
         <DifficultyPicker value={onlineDiff} onChange={setOnlineDiff} />
         <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => startOnline('pvp')}
-            className="px-4 py-3 rounded-xl bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 hover:bg-purple-100 transition"
-          >
-            <div className="text-lg">⚔️</div>
-            <div className="text-sm font-semibold text-purple-700 dark:text-purple-300">1v1 对抗</div>
-            <div className="text-xs text-gray-400">随机匹配</div>
-          </button>
-          <button
-            onClick={() => startOnline('coop')}
-            className="px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 hover:bg-green-100 transition"
-          >
-            <div className="text-lg">🤝</div>
-            <div className="text-sm font-semibold text-green-700 dark:text-green-300">合作模式</div>
-            <div className="text-xs text-gray-400">随机匹配</div>
-          </button>
+          <ModeCard icon="shield" title="1v1 对抗" sub="随机匹配" onClick={() => startOnline('pvp')} />
+          <ModeCard icon="users" title="合作模式" sub="随机匹配" onClick={() => startOnline('coop')} />
         </div>
 
         {/* 好友房间 */}
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
-          <h3 className="text-xs font-semibold text-gray-400 text-center">好友房间 · 邀请好友同局</h3>
-          <button
-            onClick={() => onRoomStart(onlineDiff, 'create')}
-            className="w-full px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 hover:bg-blue-100 transition"
-          >
-            <div className="text-lg">🏠</div>
-            <div className="text-sm font-semibold text-blue-700 dark:text-blue-300">创建房间</div>
-            <div className="text-xs text-gray-400">生成房号邀请好友</div>
-          </button>
+        <div className="border-t border-neutral-800 pt-4 space-y-3">
+          <h3 className="text-xs font-semibold tracking-widest text-neutral-500 text-center">好友房间</h3>
+          <ModeCard icon="home" title="创建房间" sub="生成房号邀请好友" onClick={() => onRoomStart(onlineDiff, 'create')} wide />
           <div className="flex gap-2">
             <input
               value={roomCode}
@@ -220,31 +170,51 @@ export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLead
               onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
               placeholder="输入房号"
               maxLength={6}
-              className="flex-1 min-w-0 px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-center font-mono tracking-widest uppercase focus:outline-none focus:border-blue-500"
+              className="flex-1 min-w-0 px-3 py-2.5 rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-100 placeholder-neutral-500 text-center font-mono tracking-widest uppercase focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
             />
             <button
               onClick={handleJoinRoom}
               disabled={!roomCode.trim()}
-              className="px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-40"
+              className="px-4 py-2.5 rounded-lg bg-neutral-100 text-neutral-950 text-sm font-semibold hover:bg-neutral-200 transition disabled:opacity-40"
             >
               加入
             </button>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="text-center text-xs text-gray-400 pt-4">
+      <div className="text-center text-xs text-neutral-600 pt-2">
         Original by{' '}
         <a
           href="https://yuer6327.top"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-wgreen hover:underline"
+          className="text-neutral-400 hover:text-neutral-100 hover:underline"
         >
           Yuer6327
         </a>
       </div>
     </div>
+  );
+}
+
+// 模式卡片（线性图标 + 标题 + 副标题）
+function ModeCard({ icon, title, sub, onClick, wide = false }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`${wide
+        ? 'col-span-2 flex items-center gap-3 px-4 text-left'
+        : 'px-3 text-center'} py-3.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-600 hover:bg-neutral-800/60 transition active:scale-[0.98]`}
+    >
+      <span className={`${wide ? '' : 'mx-auto mb-1.5'} text-neutral-400`}>
+        <Icon name={icon} className="w-5 h-5" />
+      </span>
+      <span>
+        <span className="block text-sm font-semibold text-neutral-100">{title}</span>
+        <span className="block text-xs text-neutral-500 mt-0.5">{sub}</span>
+      </span>
+    </button>
   );
 }
 
@@ -256,10 +226,10 @@ function DifficultyPicker({ value, onChange }) {
         <button
           key={key}
           onClick={() => onChange(key)}
-          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition border ${
             value === key
-              ? 'bg-wgreen text-white'
-              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'
+              ? DIFFICULTY_ACTIVE[key]
+              : 'border-neutral-800 bg-neutral-900 text-neutral-500 hover:text-neutral-300'
           }`}
         >
           {label}

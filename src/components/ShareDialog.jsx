@@ -13,7 +13,7 @@ export default function ShareDialog({ open, onClose, history, answer, difficulty
     const grid = history.map(entry =>
       entry.feedback.map(f => emojis[f] || '⬜').join('')
     ).join('\n');
-    const status = won ? '🎉' : '💀';
+    const status = won ? '胜' : '负';
     return `MathWordle ${DIFFICULTY_LABELS[difficulty]} ${status} ${steps}步 ${elapsed}秒\n\n${grid}\n\n来挑战 → wordle.yuer6327.top`;
   };
 
@@ -122,8 +122,8 @@ export default function ShareDialog({ open, onClose, history, answer, difficulty
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full space-y-4" onClick={e => e.stopPropagation()}>
-        <h2 className="text-xl font-bold text-center text-gray-800 dark:text-gray-100">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 max-w-md w-full space-y-4" onClick={e => e.stopPropagation()}>
+        <h2 className="text-xl font-bold text-center text-neutral-100">
           {won ? '🎉 恭喜通关！' : '💀 再接再厉！'}
         </h2>
         <div className="flex justify-center overflow-x-auto">
@@ -132,13 +132,13 @@ export default function ShareDialog({ open, onClose, history, answer, difficulty
         <div className="flex gap-2">
           <button
             onClick={copyToClipboard}
-            className="flex-1 bg-wgreen text-white py-3 rounded-lg font-semibold hover:bg-wgreenDark transition"
+            className="flex-1 bg-neutral-100 text-neutral-950 py-3 rounded-lg font-semibold hover:bg-neutral-200 transition"
           >
-            📋 复制成绩
+            复制成绩
           </button>
           <button
             onClick={onClose}
-            className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-3 rounded-lg font-semibold hover:bg-gray-300 transition"
+            className="flex-1 bg-neutral-800 text-neutral-200 py-3 rounded-lg font-semibold hover:bg-neutral-700 transition"
           >
             关闭
           </button>
