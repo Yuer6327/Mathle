@@ -159,13 +159,9 @@ export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLead
           <ModeCard icon="users" title="合作模式" sub="随机匹配" onClick={() => startOnline('coop')} />
           <ModeCard icon="home" title="创建房间" sub="生成房号邀请好友" onClick={() => onRoomStart(onlineDiff, 'create')} />
           {/* 加入房间 */}
-          <div className="px-3 py-3.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-600 transition">
-            <span className="mx-auto mb-1.5 flex justify-center text-neutral-400">
-              <Icon name="doorIn" className="w-5 h-5" />
-            </span>
-            <span className="block text-sm font-semibold text-neutral-100 text-center">加入房间</span>
-            <span className="block text-xs text-neutral-500 mt-0.5 text-center">输入房号快速加入</span>
-            <div className="mt-2.5 flex gap-1.5">
+          <div className="px-3 py-3 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-600 transition flex flex-col justify-center">
+            <div className="text-sm font-semibold text-neutral-100 text-center mb-2">加入房间</div>
+            <div className="flex gap-1.5">
               <input
                 value={roomCode}
                 onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
