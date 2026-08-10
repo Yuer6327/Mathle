@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useOnlineGame } from '../hooks/useOnlineGame.js';
 import { getAvailableSymbols } from '../lib/equationGenerator.js';
-import { SYMBOL_DISPLAY, DIFFICULTY_LABELS, DIFFICULTY_COLORS } from '../lib/constants.js';
+import { FEEDBACK_COLORS, DIFFICULTY_LABELS, DIFFICULTY_COLORS } from '../lib/constants.js';
 import { recordGame } from '../lib/storage.js';
 import { api } from '../lib/api.js';
 import { useAuth } from '../hooks/useAuth.jsx';
@@ -13,6 +13,31 @@ import ShareDialog from './ShareDialog.jsx';
 import Icon from './Icons.jsx';
 
 const MODE_LABEL = { pvp: '1v1 对抗', coop: '合作' };
+
+// 竞速进度列：一格一反馈颜色（绿/黄/灰），不含具体符号 —— 看得到对方进度、看不到对方猜了什么
+function RaceProgress({ history, slotCount, emptyLabel }) {
+  if (!history || history.length === 0) {
+    return <div className="text-[10px] text-neutral-500 text-center py-1">{emptyLabel}</div>;
+  }
+  return (
+    <div className="space-y-1">
+      {history.map((row, i) => {
+        // 本人最后一猜反馈可能还没回（feedback 为 null），先用灰色占位
+        const cells = row && row.length ? row : new Array(slotCount || 1).fill(null);
+        return (
+          <div key={i} className="flex flex-wrap gap-[3px]">
+            {cells.map((f, j) => (
+              <span
+                key={j}
+                className={`w-2.5 h-2.5 rounded-[2px] ${FEEDBACK_COLORS[f] || 'bg-neutral-700'}`}
+              />
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 // 联机对局界面（匹配 → 对局 → 结算）
 export default function OnlineGameScreen({ difficulty, mode, onExit }) {
@@ -125,21 +150,46 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3 max-w-md mx-auto w-full">
-        {/* 对手信息 */}
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-700">
-          <Icon name={mode === 'coop' ? 'users' : 'shield'} className="w-4 h-4 text-neutral-400" />
-          <span className="text-sm font-medium text-neutral-100">
-            {game.opponent.nickname}
-          </span>
-          {mode === 'pvp' && (
-            <span className="text-xs text-neutral-400 ml-auto">对手步数: {game.opponent.steps}</span>
-          )}
-          {mode === 'coop' && (
+        {/* 竞速进度（pvp）：左右分栏 —— 我 | 对手，双方只看反馈颜色 */}
+        {mode === 'pvp' && (
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-2.5">
+              <div className="flex items-center justify-between mb-1.5 gap-2">
+                <span className="text-xs font-semibold text-neutral-100">我</span>
+                <span className="text-xs text-neutral-400 shrink-0">{game.history.length} 步</span>
+              </div>
+              <RaceProgress
+                history={game.history.map((h) => h.feedback)}
+                slotCount={slotCount}
+                emptyLabel="尚无猜测"
+              />
+            </div>
+            <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-2.5">
+              <div className="flex items-center justify-between mb-1.5 gap-2">
+                <span className="text-xs font-semibold text-neutral-100 truncate">{game.opponent.nickname}</span>
+                <span className="text-xs text-neutral-400 shrink-0">{game.opponent.steps} 步</span>
+              </div>
+              <RaceProgress
+                history={game.opponent.feedback}
+                slotCount={slotCount}
+                emptyLabel="尚无猜测"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* 对手信息（coop） */}
+        {mode === 'coop' && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-700">
+            <Icon name="users" className="w-4 h-4 text-neutral-400" />
+            <span className="text-sm font-medium text-neutral-100">
+              {game.opponent.nickname}
+            </span>
             <span className={`text-xs ml-auto ${game.myTurn ? 'text-neutral-100 font-semibold' : 'text-neutral-400'}`}>
               {game.myTurn ? '轮到你' : '等待对方...'}
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* 提示 */}
         {game.notice && (

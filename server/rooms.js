@@ -292,7 +292,13 @@ export class Rooms {
       client.send({ type: 'guess_result', feedback: res.feedback, steps: me.steps, correct: false });
       const opp = room.players[1 - myIdx];
       if (opp.client.ws.readyState === 1) {
-        opp.client.send({ type: 'opponent_update', steps: me.steps, status: 'playing' });
+        opp.client.send({
+          type: 'opponent_update',
+          steps: me.steps,
+          status: 'playing',
+          // 竞速进度：只给对手反馈颜色（绿/黄/灰），不给具体猜的符号，防止看到对方答案
+          history: me.history.map((h) => h.feedback),
+        });
       }
     }
   }
@@ -349,6 +355,7 @@ export class Rooms {
     this.clearTimers(room);
 
     const sendOver = (p, outcome, reason, opponentSteps = 0) => {
+      const opp = room.players.find((x) => x !== p);
       p.client.send({
         type: 'game_over',
         outcome,
@@ -357,6 +364,8 @@ export class Rooms {
         difficulty: room.difficulty,
         steps: room.mode === 'coop' ? room.sharedHistory.length : p.steps,
         opponentSteps,
+        // 竞速结算：把对方完整反馈颜色一并下发，保证对方最终进度（含决胜步）可见
+        opponentHistory: room.mode === 'pvp' && opp ? opp.history.map((h) => h.feedback) : undefined,
         answer: this._answerOf(room, p),
         seed: this._seedOf(room, p),
         winner: room.winner,

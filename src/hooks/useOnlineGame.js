@@ -17,7 +17,7 @@ export function useOnlineGame(difficulty, mode) {
   const [currentGuess, setCurrentGuess] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [history, setHistory] = useState([]); // pvp: 本人历史；coop: 共享历史
-  const [opponent, setOpponent] = useState({ nickname: '对手', steps: 0, thinking: false });
+  const [opponent, setOpponent] = useState({ nickname: '对手', steps: 0, thinking: false, feedback: [] });
   const [myIndex, setMyIndex] = useState(0);
   const [myTurn, setMyTurn] = useState(true);
   const [status, setStatus] = useState('playing'); // playing|won|lost|draw|aborted
@@ -55,7 +55,7 @@ export function useOnlineGame(difficulty, mode) {
           setMyIndex(msg.yourIndex);
           // 服务端 coop 先手恒为 turnIndex=0（即 yourIndex=0），开局先对齐回合指示
           setMyTurn(mode !== 'coop' || msg.yourIndex === 0);
-          setOpponent({ nickname: msg.opponent.nickname, steps: 0, thinking: false });
+          setOpponent({ nickname: msg.opponent.nickname, steps: 0, thinking: false, feedback: [] });
           setStartTime(msg.startAt || Date.now());
           setHistory([]);
           setStatus('playing');
@@ -88,12 +88,21 @@ export function useOnlineGame(difficulty, mode) {
           break;
         }
         case 'opponent_update':
-          setOpponent((prev) => ({ ...prev, steps: msg.steps }));
+          // 竞速：对手反馈颜色历史（不含具体符号）
+          setOpponent((prev) => ({
+            ...prev,
+            steps: msg.steps,
+            feedback: msg.history || prev.feedback,
+          }));
           break;
         case 'game_over':
           setGameOver(msg);
           setStatus(msg.outcome === 'win' ? 'won' : msg.outcome === 'lose' ? 'lost' : msg.outcome);
-          setOpponent((prev) => ({ ...prev, steps: msg.opponentSteps ?? prev.steps }));
+          setOpponent((prev) => ({
+            ...prev,
+            steps: msg.opponentSteps ?? prev.steps,
+            feedback: msg.opponentHistory ?? prev.feedback,
+          }));
           setMyTurn(false);
           if (msg.answer) {
             applyAnswer(msg.answer);

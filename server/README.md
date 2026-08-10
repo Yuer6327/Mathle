@@ -67,8 +67,8 @@ VPS 只负责通过 `https://api.yuer6327.top/ws` 做联机同步通讯，**不�
 | `room_state` | 房间状态 `{code, status, hostId, players, turnIndex?, history?, steps?}`（大厅/进行中通用） |
 | `room_started` | 好友房开始 `{yourIndex, hostIndex, players, turnIndex, equation, startAt}` |
 | `guess_result` | 对抗：本次猜测反馈 `{feedback, steps, correct}` |
-| `opponent_update` | 对抗：对手进度 `{steps, status}` |
-| `game_over` | 对局结束 `{outcome, reason, steps, opponentSteps, answer, seed, winner}` |
+| `opponent_update` | 对抗：对手竞速进度 `{steps, status, history}`（`history` 为对手每次猜测的反馈颜色数组，不含符号） |
+| `game_over` | 对局结束 `{outcome, reason, steps, opponentSteps, opponentHistory?, answer, seed, winner}`（pvp 带 `opponentHistory` = 对手完整反馈颜色） |
 | `error` | 错误 `{message}` |
 
 ## 部署

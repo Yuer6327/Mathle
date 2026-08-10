@@ -133,6 +133,13 @@ assert.equal(loseB.reason, '对手先破解了等式');
 assert.ok(winA.answer && winA.answer.length === answerLen, '结算应下发答案');
 assert.ok(winA.seed, '结算应下发 seed 供统计');
 assert.ok(loseB.opponentSteps >= 1);
+// 竞速：game_over 应带对手完整反馈颜色（绿/黄/灰），且不含符号
+assert.ok(Array.isArray(loseB.opponentHistory) && loseB.opponentHistory.length >= 1, '结算应下发对手反馈颜色');
+assert.ok(
+  loseB.opponentHistory.every((row) => Array.isArray(row) && row.length === answerLen && row.every((f) => ['correct', 'present', 'absent'].includes(f))),
+  '对手反馈颜色合法且与答案等长'
+);
+assert.ok(loseB.opponentHistory.every((row) => row.every((f) => typeof f === 'string' && f !== null)), '不应含具体符号');
 ok(`bot ${winA.steps} 步解出，A 胜 B 负（答案 ${winA.answer.join('')}）`);
 
 console.log('== 4. 合作：共享等式 + 回合轮转 + 离场作废 ==');
