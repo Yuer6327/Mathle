@@ -150,9 +150,9 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3 max-w-md mx-auto w-full">
-        {/* 竞速进度（pvp）：左右分栏 —— 我 | 对手，双方只看反馈颜色 */}
+        {/* 竞速进度（pvp，桌面端）：左右分栏 —— 我 | 对手，双方只看反馈颜色 */}
         {mode === 'pvp' && (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="hidden md:grid grid-cols-2 gap-2">
             <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-2.5">
               <div className="flex items-center justify-between mb-1.5 gap-2">
                 <span className="text-xs font-semibold text-neutral-100">我</span>
@@ -175,6 +175,17 @@ export default function OnlineGameScreen({ difficulty, mode, onExit }) {
                 emptyLabel="尚无猜测"
               />
             </div>
+          </div>
+        )}
+
+        {/* 对手信息（pvp，移动端恢复原样）：只显示对手步数 */}
+        {mode === 'pvp' && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-700 md:hidden">
+            <Icon name="shield" className="w-4 h-4 text-neutral-400" />
+            <span className="text-sm font-medium text-neutral-100">
+              {game.opponent.nickname}
+            </span>
+            <span className="text-xs text-neutral-400 ml-auto">对手步数: {game.opponent.steps}</span>
           </div>
         )}
 
