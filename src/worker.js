@@ -7,6 +7,7 @@ import { onRequestGet as meGet } from '../functions/api/auth/me.js';
 import { onRequestGet as statsGet, onRequestPost as statsPost } from '../functions/api/stats.js';
 import { onRequestGet as leaderboardGet } from '../functions/api/leaderboard/[difficulty].js';
 import { onRequestGet as wsTicketGet } from '../functions/api/ws-ticket.js';
+import { onRequestGet as hintGet, onRequestPost as hintPost } from '../functions/api/hint.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -47,6 +48,10 @@ export default {
       response = await meGet(ctx);
     } else if (pathname === '/api/ws-ticket' && request.method === 'GET') {
       response = await wsTicketGet(ctx);
+    } else if (pathname === '/api/hint' && request.method === 'GET') {
+      response = await hintGet(ctx);
+    } else if (pathname === '/api/hint' && request.method === 'POST') {
+      response = await hintPost(ctx);
     } else if (pathname === '/api/stats' && request.method === 'GET') {
       response = await statsGet(ctx);
     } else if (pathname === '/api/stats' && request.method === 'POST') {

@@ -1,15 +1,18 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useGame } from '../hooks/useGame.js';
 import { getAvailableSymbols } from '../lib/equationGenerator.js';
-import { SYMBOL_DISPLAY, DIFFICULTY_LABELS, DIFFICULTY_COLORS, DIFFICULTY_TIME_LIMIT } from '../lib/constants.js';
+import { DIFFICULTY_LABELS, DIFFICULTY_COLORS, DIFFICULTY_TIME_LIMIT } from '../lib/constants.js';
 import { recordGame } from '../lib/storage.js';
 import { api } from '../lib/api.js';
 import { useAuth } from '../hooks/useAuth.jsx';
+import { useHint } from '../hooks/useHint.js';
 import EquationBoard from './EquationBoard.jsx';
 import SymbolPicker from './SymbolPicker.jsx';
 import AttemptList from './AttemptList.jsx';
 import Timer from './Timer.jsx';
 import ShareDialog from './ShareDialog.jsx';
+import HintPanel from './HintPanel.jsx';
+import HintLimitDialog from './HintLimitDialog.jsx';
 import OnlineGameScreen from './OnlineGameScreen.jsx';
 import Icon from './Icons.jsx';
 
@@ -25,10 +28,23 @@ export default function GameScreen({ difficulty, mode = 'solo', onExit }) {
 function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
   const game = useGame(difficulty, mode);
   const { user } = useAuth();
+  const hint = useHint({
+    difficulty,
+    tokens: game.equation?.tokens || null,
+    history: game.history
+  });
   const [hintPosition, setHintPosition] = useState(null);
   const [showShare, setShowShare] = useState(false);
   const [message, setMessage] = useState('');
   const initRef = useRef(false);
+
+  // 提示结果 → 高亮对应槽位（换题时随 history/结果一起清空）
+  useEffect(() => {
+    if (hint.result) setHintPosition(hint.result.slot_index);
+  }, [hint.result]);
+  useEffect(() => {
+    if (!game.equation) setHintPosition(null);
+  }, [game.equation]);
 
   // 自动初始化
   const { newGame } = game;
@@ -84,13 +100,8 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
   };
 
   const handleHint = () => {
-    const pos = game.useHint();
-    if (pos) {
-      setHintPosition(pos.i);
-      setMessage(`提示：第 ${pos.i + 1} 个槽位是 ${SYMBOL_DISPLAY[pos.sym] || pos.sym}`);
-    } else {
-      setMessage('暂无可用提示');
-    }
+    if (game.status !== 'playing') return;
+    hint.requestHint();
   };
 
   const handleTimeout = () => {
@@ -162,6 +173,14 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
           />
         </div>
 
+        {/* Jev 概率提示结果 */}
+        <HintPanel result={hint.result} onClose={hint.dismissResult} />
+        {hint.message && (
+          <div className="text-center text-sm text-neutral-300 bg-neutral-900 border border-neutral-700 rounded-lg py-1.5">
+            {hint.message}
+          </div>
+        )}
+
         {/* 人机模式：显示 Bot 状态 */}
         {showBotInfo && (
           <div className="flex items-center gap-2 px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg">
@@ -192,15 +211,17 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
         <div className="flex items-center justify-between">
           <button
             onClick={handleHint}
-            disabled={game.hintUsed}
+            disabled={hint.loading || game.status !== 'playing'}
             className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition border ${
-              game.hintUsed
+              hint.loading || game.status !== 'playing'
                 ? 'border-neutral-700 bg-neutral-900 text-neutral-400'
                 : 'border-neutral-700 bg-neutral-800 text-neutral-200 hover:bg-neutral-700'
             }`}
           >
             <Icon name="bulb" className="w-4 h-4" />
-            提示 {game.hintUsed ? '(已用)' : '(1次)'}
+            {hint.loading
+              ? 'Jev 判断中...'
+              : `提示${hint.quota ? ` · 今日剩 ${hint.quota.remaining} 次` : ''}`}
           </button>
           <button
             onClick={() => game.newGame()}
@@ -251,6 +272,14 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
         mode={mode}
         won={game.status === 'won'}
         equation={game.equation}
+      />
+
+      {/* 提示次数用尽提醒 */}
+      <HintLimitDialog
+        open={hint.limitOpen}
+        onClose={() => hint.setLimitOpen(false)}
+        message={hint.limitMessage}
+        quota={hint.quota}
       />
     </div>
   );

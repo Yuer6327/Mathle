@@ -13,3 +13,6 @@ promo-video/studio.log
 # Claude Code 本地配置
 .claude/
 CLAUDE.md
+
+# 助手本地记忆
+.workbuddy/

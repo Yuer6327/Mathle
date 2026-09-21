@@ -14,7 +14,11 @@ async function apiCall(path, options = {}) {
   const data = await res.json().catch(() => ({ error: 'Network error' }));
 
   if (!res.ok) {
-    throw new Error(data.error || `HTTP ${res.status}`);
+    const err = new Error(data.error || `HTTP ${res.status}`);
+    // 保留状态码与响应体：调用方需要区分 429（配额耗尽）等业务错误
+    err.status = res.status;
+    err.data = data;
+    throw err;
   }
 
   return data;
@@ -52,5 +56,14 @@ export const api = {
   },
   leaderboard: {
     get: (difficulty) => apiCall(`/leaderboard/${difficulty}`)
+  },
+  // Jev 概率提示：status 只查今日剩余次数，claim 消耗一次并返回概率分布
+  hint: {
+    status: () => apiCall('/hint'),
+    claim: (payload) =>
+      apiCall('/hint', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      })
   }
 };

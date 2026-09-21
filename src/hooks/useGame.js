@@ -16,7 +16,6 @@ export function useGame(difficulty, mode = 'solo') {
   const [botHistory, setBotHistory] = useState([]);
   const [botThinking, setBotThinking] = useState(false);
   const [startTime, setStartTime] = useState(null);
-  const [hintUsed, setHintUsed] = useState(false);
   const [flippingSlots, setFlippingSlots] = useState(null); // 正在翻转的行索引
   const timerRef = useRef(null);
 
@@ -32,7 +31,6 @@ export function useGame(difficulty, mode = 'solo') {
     setBotHistory([]);
     setStatus('playing');
     setSelectedSlot(null);
-    setHintUsed(false);
     setStartTime(Date.now());
     return { seed: actualSeed, equation: eq, answer: ans };
   }, [difficulty]);
@@ -118,25 +116,6 @@ export function useGame(difficulty, mode = 'solo') {
     return { won: false, feedback };
   }, [status, currentGuess, answer, history, difficulty, mode, startTime, botHistory]);
 
-  // 使用提示
-  const useHint = useCallback(() => {
-    if (hintUsed || status !== 'playing') return null;
-    // 找一个尚未在历史中被标为绿色的位置
-    const knownPositions = new Set();
-    for (const { guess, feedback } of history) {
-      feedback.forEach((f, i) => {
-        if (f === 'correct') knownPositions.add(i);
-      });
-    }
-    const candidates = answer
-      .map((sym, i) => ({ sym, i }))
-      .filter(({ i }) => !knownPositions.has(i));
-    if (candidates.length === 0) return null;
-    const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    setHintUsed(true);
-    return pick;
-  }, [hintUsed, status, answer, history]);
-
   // 倒计时超时 → 判负
   const timeout = useCallback(() => {
     if (status !== 'playing') return;
@@ -159,7 +138,6 @@ export function useGame(difficulty, mode = 'solo') {
     botThinking,
     status,
     selectedSlot,
-    hintUsed,
     flippingSlots,
     startTime,
     newGame,
@@ -167,7 +145,6 @@ export function useGame(difficulty, mode = 'solo') {
     clearSlot,
     clearAll,
     submitGuess,
-    useHint,
     timeout,
     setSelectedSlot
   };
