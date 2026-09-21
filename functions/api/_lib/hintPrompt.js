@@ -66,19 +66,23 @@ export function countSlots(tokens) {
 
 /**
  * 线上棋盘格式 → tokens
- * 客户端只发 [ '(' , '_' , '+' , ... ]：'_' 表示隐藏槽位，其余为可见符号（括号 / 等号）。
+ * 客户端只发 [ '(' , '_' , '+' , ... ]：'_' 表示隐藏槽位，其余为可见符号。
+ * 生成器只会把括号与等号暴露成可见 token（见 equationGenerator 的 VISIBLE_TYPES），
+ * 所以这里严格只放行 '_' '(' ')' '='，避免客户端把任意文本注入送给模型的 state。
  */
 export function boardToTokens(board) {
-  if (!Array.isArray(board)) return null;
+  if (!Array.isArray(board) || board.length === 0 || board.length > 256) return null;
   const tokens = [];
   let slotIndex = 0;
   for (const cell of board) {
-    if (typeof cell !== 'string' || cell.length === 0 || cell.length > 4) return null;
     if (cell === '_') {
       tokens.push({ type: 'number', symbol: null, hidden: true, slotIndex: slotIndex++ });
+    } else if (cell === '=') {
+      tokens.push({ type: 'equal', symbol: '=', hidden: false, slotIndex: null });
+    } else if (cell === '(' || cell === ')') {
+      tokens.push({ type: 'lparen', symbol: cell, hidden: false, slotIndex: null });
     } else {
-      const type = cell === '=' ? 'equal' : (cell === '(' || cell === ')') ? 'lparen' : 'visible';
-      tokens.push({ type, symbol: cell, hidden: false, slotIndex: null });
+      return null; // 出现任何其它字符都视为非法棋盘
     }
   }
   return tokens;
@@ -98,10 +102,13 @@ export function renderBoard(tokens, values) {
 const FEEDBACK_CODE = { correct: 'G', present: 'Y', absent: 'B' };
 
 /**
- * 确定性结算：每个槽位仍可能的符号集合
- * @returns {{ candidates: string[][], openSlots: number[] }}
+ * 确定性结算：每个槽位仍可能的符号集合，以及其它可由反馈推出的场况
+ * @returns {{ candidates: string[][], openSlots: number[], locked: (string|null)[],
+ *             countMin: object, countMax: object }}
  *   candidates[i] 为槽位 i（0 基）仍可能的内部符号数组；
- *   openSlots 为候选数 ≥2 的槽位（即"还没被逻辑锁定"的槽位）
+ *   openSlots 为候选数 ≥2 的槽位（即"还没被逻辑锁定"的槽位）；
+ *   locked[i] 为绿色反馈锁定住的符号（否则 null）；
+ *   countMin/countMax 为该符号在等式中出现次数的下界/上界（上界 null 表示未知）。
  */
 export function computeCandidates(tokens, difficulty, history) {
   const pool = symbolPool(difficulty);
@@ -165,7 +172,18 @@ export function computeCandidates(tokens, difficulty, history) {
   });
   const openSlots = [];
   for (let i = 0; i < slotCount; i++) if (result[i].length >= 2) openSlots.push(i);
-  return { candidates: result, openSlots };
+
+  // 可由反馈推出的「每个符号在等式中出现几次」的上下界，一并交给模型
+  const countMin = {};
+  const countMax = {};
+  for (const s of pool) {
+    const lo = minCount.get(s) || 0;
+    const hi = maxCount.get(s) ?? null;
+    if (lo > 0 || hi !== null) countMin[displayOf(s)] = lo;
+    if (lo > 0 || hi !== null) countMax[displayOf(s)] = hi;
+  }
+
+  return { candidates: result, openSlots, locked, countMin, countMax };
 }
 
 /**
@@ -173,7 +191,7 @@ export function computeCandidates(tokens, difficulty, history) {
  * @returns {{ body: object, slotIds: number[], slotCount: number } | { error: string }}
  *   slotIds[k] 与 questions['slot_' + n] 对应；n 为 1 基槽位号
  */
-export function buildJevRequest({ difficulty, tokens, history, excludeSlots = [] }) {
+export function buildJevRequest({ difficulty, tokens, history, excludeSlots = [], currentGuess = null }) {
   if (!DIFFICULTIES.includes(difficulty)) return { error: '难度无效' };
   if (!Array.isArray(tokens) || tokens.length === 0) return { error: '棋盘缺失' };
   const slotCount = countSlots(tokens);
@@ -181,7 +199,7 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
 
   const pool = symbolPool(difficulty);
   const safeHistory = (Array.isArray(history) ? history : []).slice(-MAX_HISTORY);
-  const { candidates, openSlots } = computeCandidates(tokens, difficulty, safeHistory);
+  const { candidates, openSlots, locked, countMin, countMax } = computeCandidates(tokens, difficulty, safeHistory);
 
   // 本局已经提示过的槽位优先跳过（避免重复给同一格），全被排除时退回完整列表
   const exclude = new Set((Array.isArray(excludeSlots) ? excludeSlots : []).filter((i) => Number.isInteger(i)));
@@ -195,8 +213,17 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
 
   const alphabet = pool.map((s) => ({ symbol: displayOf(s), meaning: SYMBOL_MEANING[s] || 'symbol' }));
 
+  // 已由绿色反馈锁定的槽位（玩家一定已经知道）
+  const lockedSlots = {};
+  locked.forEach((sym, i) => { if (sym) lockedSlots[i + 1] = displayOf(sym); });
+
+  // 玩家当前正在填、还没提交的那一行
+  const pending = Array.isArray(currentGuess) && currentGuess.some((s) => s != null)
+    ? currentGuess.map((s) => (s == null ? null : displayOf(s)))
+    : null;
+
   const state = {
-    game: 'MathWordle — a Wordle-style puzzle. Every symbol of a math equation is hidden and the player guesses them slot by slot.',
+    game: 'MathWordle — a Wordle-style puzzle. Every symbol of a math equation is hidden and the player guesses them slot by slot. The completed equation must be mathematically TRUE.',
     how_to_read: {
       board: "Only parentheses and '=' are shown. Each '_' is a hidden slot the player must fill. Slots are numbered by the order the '_' marks appear, starting at 1.",
       multi_digit: "Each '_' holds exactly ONE symbol. A multi-digit number is split one digit per slot, so two adjacent slots '3' then '6' at the end mean the number 36.",
@@ -207,10 +234,17 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
     symbol_alphabet: alphabet,
     slot_count: slotCount,
     board: renderBoard(tokens, null),
+    slots_already_known: lockedSlots,
     guesses_so_far: safeHistory.map((entry) => ({
       slots: entry.guess.map((s) => displayOf(s)),
       feedback: entry.feedback.map((f) => FEEDBACK_CODE[f] || '?')
     })),
+    player_current_unsubmitted_guess: pending,
+    symbol_occurrence_bounds: {
+      note: 'How many times each symbol must occur in the whole equation, as far as the feedback proves. min = at least this many, max = at most this many (null = no upper bound known).',
+      min: countMin,
+      max: countMax
+    },
     slots_still_open: Object.fromEntries(
       asked.map((i) => [
         String(i + 1),
@@ -220,7 +254,7 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
         }
       ])
     ),
-    task: 'For each slot listed in slots_still_open, decide which single candidate symbol most likely fills that slot.'
+    task: 'For every slot listed in slots_still_open, rank its candidates_not_ruled_out by how likely each one is to fill that slot.'
   };
 
   const questions = {};
@@ -232,7 +266,7 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
         question: `Hidden slot ${i + 1}: which single symbol most likely belongs in this slot?`,
         slot: i + 1,
         candidates_not_ruled_out: options.map(displayOf),
-        note: 'The candidates listed are the only symbols not yet ruled out for this slot by the guess history. Judge among them using the board structure and the feedback of every entry in guesses_so_far.'
+        note: 'The candidates listed are the only symbols not yet ruled out for this slot by the guess history. Judge among them using the board structure, the occurrence bounds, and the feedback of every entry in guesses_so_far. The probabilities you return are shown to the player as a ranked list from most to least likely, so spread them over the candidates you consider genuinely plausible.'
       },
       criteria: Object.fromEntries(options.map((s) => [displayOf(s), SYMBOL_MEANING[s] || 'symbol']))
     };

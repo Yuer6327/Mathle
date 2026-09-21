@@ -283,6 +283,7 @@ export async function onRequestPost(context) {
     difficulty,
     tokens: parsed.tokens,
     history: parsed.history,
+    currentGuess: parsed.currentGuess,
     excludeSlots: (Array.isArray(body?.exclude_slots) ? body.exclude_slots : [])
       .filter((i) => Number.isInteger(i) && i >= 0 && i < parsed.slotCount)
   });

@@ -63,7 +63,7 @@ export function useHint({ difficulty, tokens, history }) {
     } finally {
       setLoading(false);
     }
-  }, [loading, tokens, difficulty, history, hintedSlots]);
+  }, [loading, tokens, difficulty, history, hintedSlots, currentGuess]);
 
   const dismissResult = useCallback(() => setResult(null), []);
 

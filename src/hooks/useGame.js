@@ -31,6 +31,7 @@ export function useGame(difficulty, mode = 'solo') {
     setBotHistory([]);
     setStatus('playing');
     setSelectedSlot(null);
+    setHintUsed(false);
     setStartTime(Date.now());
     return { seed: actualSeed, equation: eq, answer: ans };
   }, [difficulty]);
@@ -115,6 +116,24 @@ export function useGame(difficulty, mode = 'solo') {
 
     return { won: false, feedback };
   }, [status, currentGuess, answer, history, difficulty, mode, startTime, botHistory]);
+
+  // 每局一次的确定性提示：随机挑一个尚未被绿色反馈解锁的槽位，直接给出答案
+  const useHint = useCallback(() => {
+    if (hintUsed || status !== 'playing') return null;
+    const knownPositions = new Set();
+    for (const { guess, feedback } of history) {
+      feedback.forEach((f, i) => {
+        if (f === 'correct') knownPositions.add(i);
+      });
+    }
+    const candidates = answer
+      .map((sym, i) => ({ sym, i }))
+      .filter(({ i }) => !knownPositions.has(i));
+    if (candidates.length === 0) return null;
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    setHintUsed(true);
+    return pick;
+  }, [hintUsed, status, answer, history]);
 
   // 倒计时超时 → 判负
   const timeout = useCallback(() => {

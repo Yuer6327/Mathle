@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useGame } from '../hooks/useGame.js';
 import { getAvailableSymbols } from '../lib/equationGenerator.js';
-import { DIFFICULTY_LABELS, DIFFICULTY_COLORS, DIFFICULTY_TIME_LIMIT } from '../lib/constants.js';
+import { SYMBOL_DISPLAY, DIFFICULTY_LABELS, DIFFICULTY_COLORS, DIFFICULTY_TIME_LIMIT } from '../lib/constants.js';
 import { recordGame } from '../lib/storage.js';
 import { api } from '../lib/api.js';
 import { useAuth } from '../hooks/useAuth.jsx';
@@ -42,8 +42,9 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
   useEffect(() => {
     if (hint.result) setHintPosition(hint.result.slot_index);
   }, [hint.result]);
+  // 换题时清掉高亮（equation 每次换题都是新对象）
   useEffect(() => {
-    if (!game.equation) setHintPosition(null);
+    setHintPosition(null);
   }, [game.equation]);
 
   // 自动初始化
@@ -99,7 +100,19 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
     game.submitGuess();
   };
 
+  // 每局一次的确定性提示：直接给出某个槽位的答案
   const handleHint = () => {
+    const pos = game.useHint();
+    if (pos) {
+      setHintPosition(pos.i);
+      setMessage(`提示：第 ${pos.i + 1} 个槽位是 ${SYMBOL_DISPLAY[pos.sym] || pos.sym}`);
+    } else {
+      setMessage('暂无可用提示');
+    }
+  };
+
+  // Jev 概率参考（额外提示，受每日次数限制）
+  const handleJevHint = () => {
     if (game.status !== 'playing') return;
     hint.requestHint();
   };
