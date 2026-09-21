@@ -16,6 +16,7 @@ export function useGame(difficulty, mode = 'solo') {
   const [botHistory, setBotHistory] = useState([]);
   const [botThinking, setBotThinking] = useState(false);
   const [startTime, setStartTime] = useState(null);
+  const [hintUsed, setHintUsed] = useState(false); // 每局一次的确定性提示是否已用
   const [flippingSlots, setFlippingSlots] = useState(null); // 正在翻转的行索引
   const timerRef = useRef(null);
 
@@ -157,6 +158,7 @@ export function useGame(difficulty, mode = 'solo') {
     botThinking,
     status,
     selectedSlot,
+    hintUsed,
     flippingSlots,
     startTime,
     newGame,
@@ -164,6 +166,7 @@ export function useGame(difficulty, mode = 'solo') {
     clearSlot,
     clearAll,
     submitGuess,
+    useHint,
     timeout,
     setSelectedSlot
   };

@@ -124,7 +124,15 @@ function parseGamePayload(body, difficulty) {
     if (!feedback.every((f) => FEEDBACK_VALUES.has(f))) continue;
     history.push({ guess: [...guess], feedback: [...feedback] });
   }
-  return { tokens, history, slotCount };
+
+  // 玩家当前正在填、还没提交的那一行（可选，仅作上下文喂给模型）
+  const rawPending = body?.current_guess;
+  const currentGuess = Array.isArray(rawPending) && rawPending.length === slotCount
+    && rawPending.every((s) => s == null || (typeof s === 'string' && pool.has(s)))
+    ? rawPending.map((s) => (s == null ? null : s))
+    : null;
+
+  return { tokens, history, slotCount, currentGuess };
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

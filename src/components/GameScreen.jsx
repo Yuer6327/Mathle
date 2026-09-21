@@ -31,7 +31,8 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
   const hint = useHint({
     difficulty,
     tokens: game.equation?.tokens || null,
-    history: game.history
+    history: game.history,
+    currentGuess: game.currentGuess
   });
   const [hintPosition, setHintPosition] = useState(null);
   const [showShare, setShowShare] = useState(false);
@@ -220,25 +221,37 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
           <AttemptList history={game.history} maxSlots={answer.length} title="你的猜测" />
         </div>
 
-        {/* 提示按钮 */}
-        <div className="flex items-center justify-between">
+        {/* 提示：确定性提示每局 1 次；Jev 概率排序受每日次数限制 */}
+        <div className="flex items-center gap-2">
           <button
             onClick={handleHint}
-            disabled={hint.loading || game.status !== 'playing'}
+            disabled={game.hintUsed || game.status !== 'playing'}
             className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition border ${
-              hint.loading || game.status !== 'playing'
+              game.hintUsed || game.status !== 'playing'
                 ? 'border-neutral-700 bg-neutral-900 text-neutral-400'
                 : 'border-neutral-700 bg-neutral-800 text-neutral-200 hover:bg-neutral-700'
             }`}
           >
             <Icon name="bulb" className="w-4 h-4" />
+            提示 {game.hintUsed ? '(已用)' : '(每局 1 次)'}
+          </button>
+          <button
+            onClick={handleJevHint}
+            disabled={hint.loading || game.status !== 'playing'}
+            className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition border ${
+              hint.loading || game.status !== 'playing'
+                ? 'border-neutral-800 bg-neutral-900 text-neutral-500'
+                : 'border-neutral-800 bg-neutral-950 text-neutral-300 hover:bg-neutral-800'
+            }`}
+          >
+            <Icon name="chart" className="w-4 h-4" />
             {hint.loading
               ? 'Jev 判断中...'
-              : `提示${hint.quota ? ` · 今日剩 ${hint.quota.remaining} 次` : ''}`}
+              : `Jev 概率${hint.quota ? ` · 剩 ${hint.quota.remaining} 次` : ''}`}
           </button>
           <button
             onClick={() => game.newGame()}
-            className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-neutral-200 px-3 py-1.5 transition"
+            className="ml-auto flex items-center gap-1.5 text-sm text-neutral-400 hover:text-neutral-200 px-3 py-1.5 transition"
           >
             <Icon name="refresh" className="w-4 h-4" />
             换题

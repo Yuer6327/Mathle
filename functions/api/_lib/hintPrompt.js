@@ -13,8 +13,8 @@
 
 import { SYMBOL_POOLS, SYMBOL_DISPLAY, DIFFICULTIES } from '../../../src/lib/constants.js';
 
-/** 单次请求最多问几个槽位（每个槽位一个问题，控制 token 成本） */
-export const MAX_QUESTIONS = 30;
+/** 单次请求最多问几个槽位（每个槽位一个问题，控制 token 成本；需覆盖极难档的 45 槽） */
+export const MAX_QUESTIONS = 48;
 /** 最多接受多少条猜测历史 */
 export const MAX_HISTORY = 20;
 /** 单个棋盘最多多少槽位 */

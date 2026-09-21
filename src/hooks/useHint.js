@@ -7,7 +7,7 @@ export function boardToWire(tokens) {
   return tokens.map((t) => (t.hidden ? '_' : t.symbol));
 }
 
-export function useHint({ difficulty, tokens, history }) {
+export function useHint({ difficulty, tokens, history, currentGuess }) {
   const [quota, setQuota] = useState(null);
   const [result, setResult] = useState(null);
   const [hintedSlots, setHintedSlots] = useState([]);
@@ -41,6 +41,7 @@ export function useHint({ difficulty, tokens, history }) {
         difficulty,
         board: boardToWire(tokens),
         history,
+        current_guess: Array.isArray(currentGuess) ? currentGuess : null,
         exclude_slots: hintedSlots
       });
       if (data?.quota) setQuota(data.quota);
