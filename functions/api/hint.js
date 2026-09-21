@@ -287,11 +287,16 @@ export async function onRequestPost(context) {
   const parsed = parseGamePayload(body, difficulty);
   if (parsed.error) return json({ error: parsed.error, reason: 'bad_request' }, 400, setCookie);
 
+  const focusSlot = Number.isInteger(body?.focus_slot) && body.focus_slot >= 0 && body.focus_slot < parsed.slotCount
+    ? body.focus_slot
+    : null;
+
   const built = buildJevRequest({
     difficulty,
     tokens: parsed.tokens,
     history: parsed.history,
     currentGuess: parsed.currentGuess,
+    focusSlot,
     excludeSlots: (Array.isArray(body?.exclude_slots) ? body.exclude_slots : [])
       .filter((i) => Number.isInteger(i) && i >= 0 && i < parsed.slotCount)
   });
@@ -361,6 +366,9 @@ export async function onRequestPost(context) {
     choice: best.choice,
     probabilities: best.probabilities,
     confidence: best.confidence,
+    // 玩家是否手动指定了槽位；指定了但该槽已被逻辑锁定时 focus_applied=false（退回自动推荐）
+    focus_applied: !!built.focusApplied,
+    requested_slot: built.requestedSlot,
     model: result.data?.model || 'jev-latest',
     quota: quotaPayload({ loggedIn, limit, used: nextUsed, resetAt })
   }, 200, setCookie);

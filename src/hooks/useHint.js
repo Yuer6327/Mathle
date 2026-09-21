@@ -7,7 +7,7 @@ export function boardToWire(tokens) {
   return tokens.map((t) => (t.hidden ? '_' : t.symbol));
 }
 
-export function useHint({ difficulty, tokens, history, currentGuess }) {
+export function useHint({ difficulty, tokens, history, currentGuess, focusSlot = null }) {
   const [quota, setQuota] = useState(null);
   const [result, setResult] = useState(null);
   const [hintedSlots, setHintedSlots] = useState([]);
@@ -42,6 +42,8 @@ export function useHint({ difficulty, tokens, history, currentGuess }) {
         board: boardToWire(tokens),
         history,
         current_guess: Array.isArray(currentGuess) ? currentGuess : null,
+        // 玩家在棋盘上选中了某个槽位 → 指定只提示这一格；否则由服务端自动推荐
+        focus_slot: Number.isInteger(focusSlot) ? focusSlot : null,
         exclude_slots: hintedSlots
       });
       if (data?.quota) setQuota(data.quota);
@@ -64,7 +66,7 @@ export function useHint({ difficulty, tokens, history, currentGuess }) {
     } finally {
       setLoading(false);
     }
-  }, [loading, tokens, difficulty, history, hintedSlots, currentGuess]);
+  }, [loading, tokens, difficulty, history, hintedSlots, currentGuess, focusSlot]);
 
   const dismissResult = useCallback(() => setResult(null), []);
 

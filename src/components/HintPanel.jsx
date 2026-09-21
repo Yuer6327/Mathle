@@ -2,8 +2,8 @@ import React from 'react';
 import { SYMBOL_DISPLAY } from '../lib/constants.js';
 import Icon from './Icons.jsx';
 
-// Jev 概率参考：把某个空槽的全部候选符号按概率从大到小、自上而下排成一列
-// 仅作参考，不代替玩家判断（确定性的答案提示是另一个按钮，每局 1 次）
+// 提示面板：调 Jev 拿到某个空槽的符号概率分布，按概率从大到小、自上而下排成一列。
+// 仅作参考，不代替玩家判断。
 const BANDS = [
   { min: 0.8, label: '高', cls: 'text-green-400 border-green-400/40 bg-green-400/10' },
   { min: 0.5, label: '中', cls: 'text-yellow-400 border-yellow-400/40 bg-yellow-400/10' },
@@ -28,13 +28,23 @@ export default function HintPanel({ result, onClose }) {
 
   const band = confidenceBand(result.confidence ?? 0);
   const maxP = list[0].probability || 1;
+  const manual = !!result.focus_applied;
+  // 玩家指定了槽位，但那一格已被反馈逻辑锁定 → 本次退回自动推荐
+  const focusIgnored = result.requested_slot != null && !result.focus_applied;
 
   return (
     <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-3 space-y-2.5 animate-pop">
       <div className="flex items-center gap-2">
         <Icon name="bulb" className="w-4 h-4 text-yellow-400" />
         <span className="text-sm text-neutral-200 font-medium">
-          Jev 概率参考 · 第 {result.slot_number} 个空槽
+          提示 · 第 {result.slot_number} 个空槽
+        </span>
+        <span className={`text-xs px-1.5 py-0.5 rounded border ${
+          manual
+            ? 'text-blue-300 border-blue-400/40 bg-blue-400/10'
+            : 'text-neutral-500 border-neutral-700'
+        }`}>
+          {manual ? '你指定的' : '自动推荐'}
         </span>
         <button
           onClick={onClose}
@@ -44,6 +54,13 @@ export default function HintPanel({ result, onClose }) {
           <Icon name="close" className="w-4 h-4" />
         </button>
       </div>
+
+      {focusIgnored && (
+        <p className="text-xs text-neutral-400">
+          你指定的第 {result.requested_slot + 1} 槽已被反馈逻辑锁定（只剩唯一可能），
+          所以这次改为推荐其他槽位。
+        </p>
+      )}
 
       {/* 按概率从大到小自上而下排列 */}
       <ol className="space-y-1 max-h-72 overflow-y-auto pr-0.5">

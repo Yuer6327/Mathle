@@ -13,8 +13,14 @@
 
 import { SYMBOL_POOLS, SYMBOL_DISPLAY, DIFFICULTIES } from '../../../src/lib/constants.js';
 
-/** 单次请求最多问几个槽位（每个槽位一个问题，控制 token 成本；需覆盖极难档的 45 槽） */
-export const MAX_QUESTIONS = 48;
+/**
+ * 自动模式单次请求最多问几个槽位。
+ * 槽位按「候选数最少优先」排序，而 Jev 的置信度与"候选少"高度相关：
+ * 实测极难档（41-42 槽、未解 20 个）时，置信度最高的槽位 3/3 都落在前 8 个之内，
+ * 问满 20 个（约 15.9k token）与只问 8 个（约 8.9k token）信心差 ≤0.03。
+ * 取 10 留一点余量，省约 30% 成本；玩家手动指定槽位时只问 1 个，不受此限制。
+ */
+export const MAX_QUESTIONS = 10;
 /** 最多接受多少条猜测历史 */
 export const MAX_HISTORY = 20;
 /** 单个棋盘最多多少槽位 */
@@ -191,7 +197,7 @@ export function computeCandidates(tokens, difficulty, history) {
  * @returns {{ body: object, slotIds: number[], slotCount: number } | { error: string }}
  *   slotIds[k] 与 questions['slot_' + n] 对应；n 为 1 基槽位号
  */
-export function buildJevRequest({ difficulty, tokens, history, excludeSlots = [], currentGuess = null }) {
+export function buildJevRequest({ difficulty, tokens, history, excludeSlots = [], currentGuess = null, focusSlot = null }) {
   if (!DIFFICULTIES.includes(difficulty)) return { error: '难度无效' };
   if (!Array.isArray(tokens) || tokens.length === 0) return { error: '棋盘缺失' };
   const slotCount = countSlots(tokens);
@@ -201,14 +207,19 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
   const safeHistory = (Array.isArray(history) ? history : []).slice(-MAX_HISTORY);
   const { candidates, openSlots, locked, countMin, countMax } = computeCandidates(tokens, difficulty, safeHistory);
 
-  // 本局已经提示过的槽位优先跳过（避免重复给同一格），全被排除时退回完整列表
-  const exclude = new Set((Array.isArray(excludeSlots) ? excludeSlots : []).filter((i) => Number.isInteger(i)));
-  let usable = openSlots.filter((i) => !exclude.has(i));
-  if (usable.length === 0) usable = openSlots;
+  // 玩家手动指定的槽位优先：只问这一个（省 token，也更贴合玩家意图）。
+  // 指定的槽位若已被反馈逻辑锁定（候选只剩 1 个），则退回自动推荐。
+  const focus = Number.isInteger(focusSlot) && focusSlot >= 0 && focusSlot < slotCount ? focusSlot : null;
+  const focusApplied = focus !== null && openSlots.includes(focus);
 
-  // 优先询问候选最少的槽位（信息量最大），并保持至多 MAX_QUESTIONS 个
+  // 自动模式下：本局已经提示过的槽位优先跳过（避免重复给同一格），全被排除时退回完整列表
+  const exclude = new Set((Array.isArray(excludeSlots) ? excludeSlots : []).filter((i) => Number.isInteger(i)));
+  let usable = focusApplied ? [focus] : openSlots.filter((i) => !exclude.has(i));
+  if (!focusApplied && usable.length === 0) usable = openSlots;
+
+  // 自动模式优先询问候选最少的槽位（信息量最大）
   const ranked = [...usable].sort((a, b) => candidates[a].length - candidates[b].length || a - b);
-  const asked = ranked.slice(0, MAX_QUESTIONS);
+  const asked = ranked.slice(0, focusApplied ? 1 : MAX_QUESTIONS);
   if (asked.length === 0) return { error: '没有可提示的槽位' };
 
   const alphabet = pool.map((s) => ({ symbol: displayOf(s), meaning: SYMBOL_MEANING[s] || 'symbol' }));
@@ -275,6 +286,8 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
   return {
     body: { state, model: 'jev-latest', questions },
     slotIds: asked,
-    slotCount
+    slotCount,
+    focusApplied,
+    requestedSlot: focus
   };
 }

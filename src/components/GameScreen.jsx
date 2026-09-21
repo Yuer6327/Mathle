@@ -16,6 +16,10 @@ import HintLimitDialog from './HintLimitDialog.jsx';
 import OnlineGameScreen from './OnlineGameScreen.jsx';
 import Icon from './Icons.jsx';
 
+// 旧的「每局 1 次、直接给答案」提示已被 Jev 概率提示取代。
+// 逻辑（useGame 的 hintUsed / useHint）保留，把这个开关打开即可恢复旧按钮。
+const LEGACY_DETERMINISTIC_HINT = false;
+
 // 游戏界面
 export default function GameScreen({ difficulty, mode = 'solo', onExit }) {
   // 联机模式（pvp/coop）交给独立的联机对局界面
@@ -32,7 +36,9 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
     difficulty,
     tokens: game.equation?.tokens || null,
     history: game.history,
-    currentGuess: game.currentGuess
+    currentGuess: game.currentGuess,
+    // 玩家在棋盘上选中某格时，指定只提示这一格
+    focusSlot: game.selectedSlot
   });
   const [hintPosition, setHintPosition] = useState(null);
   const [showShare, setShowShare] = useState(false);
@@ -101,8 +107,9 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
     game.submitGuess();
   };
 
-  // 每局一次的确定性提示：直接给出某个槽位的答案
-  const handleHint = () => {
+  // 旧的「确定性答案」提示：每局 1 次，直接给出某个槽位的答案。
+  // 已由 Jev 概率提示取代，代码保留但默认不在 UI 上出现（LEGACY_DETERMINISTIC_HINT 打开即可恢复）。
+  const handleDeterministicHint = () => {
     const pos = game.useHint();
     if (pos) {
       setHintPosition(pos.i);
@@ -112,8 +119,8 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
     }
   };
 
-  // Jev 概率参考（额外提示，受每日次数限制）
-  const handleJevHint = () => {
+  // 当前的提示：调 Jev 拿某个空槽的概率排序（受每日次数限制）
+  const handleHint = () => {
     if (game.status !== 'playing') return;
     hint.requestHint();
   };
@@ -221,34 +228,41 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
           <AttemptList history={game.history} maxSlots={answer.length} title="你的猜测" />
         </div>
 
-        {/* 提示：确定性提示每局 1 次；Jev 概率排序受每日次数限制 */}
-        <div className="flex items-center gap-2">
+        {/* 提示：调 Jev 给出指定空槽的符号概率排序（点棋盘空槽可指定某格） */}
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleHint}
-            disabled={game.hintUsed || game.status !== 'playing'}
+            disabled={hint.loading || game.status !== 'playing'}
             className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition border ${
-              game.hintUsed || game.status !== 'playing'
+              hint.loading || game.status !== 'playing'
                 ? 'border-neutral-700 bg-neutral-900 text-neutral-400'
                 : 'border-neutral-700 bg-neutral-800 text-neutral-200 hover:bg-neutral-700'
             }`}
           >
             <Icon name="bulb" className="w-4 h-4" />
-            提示 {game.hintUsed ? '(已用)' : '(每局 1 次)'}
-          </button>
-          <button
-            onClick={handleJevHint}
-            disabled={hint.loading || game.status !== 'playing'}
-            className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition border ${
-              hint.loading || game.status !== 'playing'
-                ? 'border-neutral-800 bg-neutral-900 text-neutral-500'
-                : 'border-neutral-800 bg-neutral-950 text-neutral-300 hover:bg-neutral-800'
-            }`}
-          >
-            <Icon name="chart" className="w-4 h-4" />
             {hint.loading
               ? 'Jev 判断中...'
-              : `Jev 概率${hint.quota ? ` · 剩 ${hint.quota.remaining} 次` : ''}`}
+              : `提示${game.selectedSlot != null ? ` · 第 ${game.selectedSlot + 1} 槽` : ''}${
+                  hint.quota ? ` · 剩 ${hint.quota.remaining} 次` : ''
+                }`}
           </button>
+          <span className="text-xs text-neutral-500">
+            {game.selectedSlot != null ? '已指定该槽位' : '点棋盘空槽可指定槽位'}
+          </span>
+          {LEGACY_DETERMINISTIC_HINT && (
+            <button
+              onClick={handleDeterministicHint}
+              disabled={game.hintUsed || game.status !== 'playing'}
+              className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition border ${
+                game.hintUsed || game.status !== 'playing'
+                  ? 'border-neutral-800 bg-neutral-900 text-neutral-500'
+                  : 'border-neutral-800 bg-neutral-950 text-neutral-300 hover:bg-neutral-800'
+              }`}
+            >
+              <Icon name="chart" className="w-4 h-4" />
+              答案提示{game.hintUsed ? ' · 已用' : ' · 每局 1 次'}
+            </button>
+          )}
           <button
             onClick={() => game.newGame()}
             className="ml-auto flex items-center gap-1.5 text-sm text-neutral-400 hover:text-neutral-200 px-3 py-1.5 transition"
