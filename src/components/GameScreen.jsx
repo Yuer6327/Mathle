@@ -194,8 +194,14 @@ function SoloBotGame({ difficulty, mode = 'solo', onExit }) {
           />
         </div>
 
-        {/* Jev 概率提示结果 */}
-        <HintPanel result={hint.result} onClose={hint.dismissResult} />
+        {/* Jev 概率提示结果（可折叠，历史可回查） */}
+        <HintPanel
+          result={hint.result}
+          results={hint.results}
+          activeIndex={hint.activeIndex}
+          onSelect={hint.selectResult}
+          onClose={hint.dismissAll}
+        />
         {hint.message && (
           <div className="text-center text-sm text-neutral-300 bg-neutral-900 border border-neutral-700 rounded-lg py-1.5">
             {hint.message}

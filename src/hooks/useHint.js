@@ -9,7 +9,9 @@ export function boardToWire(tokens) {
 
 export function useHint({ difficulty, tokens, history, currentGuess, focusSlot = null }) {
   const [quota, setQuota] = useState(null);
-  const [result, setResult] = useState(null);
+  // 本局所有提示结果，最新的在最前（可折叠、可回查）
+  const [results, setResults] = useState([]);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [hintedSlots, setHintedSlots] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -25,9 +27,10 @@ export function useHint({ difficulty, tokens, history, currentGuess, focusSlot =
     return () => { cancelled = true; };
   }, []);
 
-  // 换题（equation 变化）时清空本局的提示结果
+  // 换题（equation 变化）时清空本局的提示历史
   useEffect(() => {
-    setResult(null);
+    setResults([]);
+    setActiveIndex(0);
     setHintedSlots([]);
     setMessage('');
   }, [tokens]);
@@ -47,7 +50,8 @@ export function useHint({ difficulty, tokens, history, currentGuess, focusSlot =
         exclude_slots: hintedSlots
       });
       if (data?.quota) setQuota(data.quota);
-      setResult(data);
+      setResults((prev) => [data, ...prev]);
+      setActiveIndex(0);
       if (typeof data?.slot_index === 'number') {
         setHintedSlots((prev) => (prev.includes(data.slot_index) ? prev : [...prev, data.slot_index]));
       }
@@ -68,18 +72,27 @@ export function useHint({ difficulty, tokens, history, currentGuess, focusSlot =
     }
   }, [loading, tokens, difficulty, history, hintedSlots, currentGuess, focusSlot]);
 
-  const dismissResult = useCallback(() => setResult(null), []);
+  const dismissAll = useCallback(() => {
+    setResults([]);
+    setActiveIndex(0);
+  }, []);
+
+  const safeIndex = Math.min(activeIndex, Math.max(0, results.length - 1));
+  const result = results[safeIndex] || null;
 
   return {
     quota,
+    results,
     result,
+    activeIndex: safeIndex,
+    selectResult: setActiveIndex,
     loading,
     message,
     limitOpen,
     limitMessage,
     setLimitOpen,
     requestHint,
-    dismissResult,
+    dismissAll,
     setMessage
   };
 }

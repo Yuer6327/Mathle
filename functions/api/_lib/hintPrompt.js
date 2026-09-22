@@ -86,7 +86,8 @@ export function boardToTokens(board) {
     } else if (cell === '=') {
       tokens.push({ type: 'equal', symbol: '=', hidden: false, slotIndex: null });
     } else if (cell === '(' || cell === ')') {
-      tokens.push({ type: 'lparen', symbol: cell, hidden: false, slotIndex: null });
+      // 注意：')' 必须是 rparen，标成 lparen 会让括号深度只增不减（语法分析会全线判死）
+      tokens.push({ type: cell === '(' ? 'lparen' : 'rparen', symbol: cell, hidden: false, slotIndex: null });
     } else {
       return null; // 出现任何其它字符都视为非法棋盘
     }
@@ -106,6 +107,147 @@ export function renderBoard(tokens, values) {
 }
 
 const FEEDBACK_CODE = { correct: 'G', present: 'Y', absent: 'B' };
+
+// ——————————————————————————————————————————————————————————————
+// 语法层：等式的结构硬约束
+//
+// 实测（每种难度 4000 个等式）得出生成器的语法：
+//   S := A (op A)* '=' D+
+//   A := D+ | 常量(π/e) | 函数 '(' S ')' | '(' S ')'
+// 关键事实（实测无一例外）：
+//   · '=' 右侧只会是数字槽（0-9），不会出现运算符/函数/常量
+//   · 函数（√ sin cos tan lg ln abs）必定紧跟可见的 '('，前面只能是运算符 / '(' / '^'
+//   · 运算符前面只能是数字 / 常量 / ')'，绝不会出现在表达式开头或 '(' 之后
+//   · 没有隐式乘法、没有一元负号、没有嵌套的 '='
+// 用途：把「这个槽位在语法上能放哪类符号」算出来，喂给模型并据此收紧候选，
+//   免得模型在数字格里猜运算符（这正是之前提示不准的主因）。
+// ——————————————————————————————————————————————————————————————
+export const KIND = { DIGIT: 'digit', CONST: 'constant', OP: 'operator', FUNC: 'function' };
+const OP_SYMBOLS = new Set(['+', '-', '×', '÷', '^']);
+const FUNC_SYMBOLS = new Set(['sqrt', 'sin', 'cos', 'tan', 'log', 'ln', 'abs']);
+const KIND_ORDER = [KIND.DIGIT, KIND.CONST, KIND.OP, KIND.FUNC];
+/** typed_layout 里的单字母代号 */
+export const KIND_CODE = { digit: 'd', constant: 'c', operator: 'o', function: 'f' };
+/** 送给模型看的类别说明 */
+const KIND_LABEL = {
+  digit: 'digit (0-9)',
+  constant: 'constant (π or e)',
+  operator: 'operator (+ − × ÷ ^)',
+  function: 'function (√ sin cos tan lg ln abs)'
+};
+
+export function symbolKind(symbol) {
+  if (FUNC_SYMBOLS.has(symbol)) return KIND.FUNC;
+  if (OP_SYMBOLS.has(symbol)) return KIND.OP;
+  if (symbol === 'pi' || symbol === 'e') return KIND.CONST;
+  return KIND.DIGIT;
+}
+
+// 解析状态机：wantAtom=该出新操作数了 / wantFnParen=函数后必须紧跟 '(' /
+// inNumber=刚吃掉一个数字（后面还能接数字，凑多位数）/ atomDone=一个不可再延长的完整操作数 /
+// rhsWant,rhsNum=等号右侧（只允许数字）
+const M_WANT_ATOM = 'wantAtom';
+const M_WANT_FN_PAREN = 'wantFnParen';
+const M_IN_NUMBER = 'inNumber';
+const M_ATOM_DONE = 'atomDone';
+const M_RHS_WANT = 'rhsWant';
+const M_RHS_NUM = 'rhsNum';
+const ALL_MODES = [M_WANT_ATOM, M_WANT_FN_PAREN, M_IN_NUMBER, M_ATOM_DONE, M_RHS_WANT, M_RHS_NUM];
+/** 能合法收尾的状态（且括号深度必须为 0） */
+const TERMINAL_MODES = new Set([M_IN_NUMBER, M_ATOM_DONE, M_RHS_NUM]);
+
+/** 状态机一步转移；kind 为 '(' ')' '=' 或某个符号类别 */
+function step(mode, kind, depth) {
+  if (kind === '(') {
+    return mode === M_WANT_ATOM || mode === M_WANT_FN_PAREN ? M_WANT_ATOM : null;
+  }
+  if (kind === ')') {
+    return depth > 0 && (mode === M_IN_NUMBER || mode === M_ATOM_DONE) ? M_ATOM_DONE : null;
+  }
+  if (kind === '=') {
+    return depth === 0 && (mode === M_IN_NUMBER || mode === M_ATOM_DONE) ? M_RHS_WANT : null;
+  }
+  if (kind === KIND.DIGIT) {
+    if (mode === M_WANT_ATOM) return M_IN_NUMBER;
+    if (mode === M_IN_NUMBER) return M_IN_NUMBER;
+    if (mode === M_RHS_WANT) return M_RHS_NUM;
+    if (mode === M_RHS_NUM) return M_RHS_NUM;
+    return null;
+  }
+  if (kind === KIND.CONST) return mode === M_WANT_ATOM ? M_ATOM_DONE : null;
+  if (kind === KIND.FUNC) return mode === M_WANT_ATOM ? M_WANT_FN_PAREN : null;
+  if (kind === KIND.OP) return mode === M_IN_NUMBER || mode === M_ATOM_DONE ? M_WANT_ATOM : null;
+  return null;
+}
+
+/**
+ * 算出每个槽位在语法上允许的符号类别（正向可达 × 反向可达，保证 sound：
+ * 真值的类别永远不会被排除）。
+ * @returns {{ allowed: string[][], typedLayout: string }}
+ *   allowed 按【槽位序号】索引（allowed[slotIndex]），与 candidates 对齐。
+ */
+export function analyzeStructure(tokens) {
+  const n = tokens.length;
+  // 每个位置之前的括号深度（可见括号固定，所以深度是确定的）
+  const depthBefore = new Array(n).fill(0);
+  let depth = 0;
+  for (let i = 0; i < n; i++) {
+    depthBefore[i] = depth;
+    if (!tokens[i].hidden) {
+      if (tokens[i].type === 'lparen') depth++;
+      else if (tokens[i].type === 'rparen') depth--;
+    }
+  }
+  const kindsAt = tokens.map((t) => {
+    if (t.hidden) return KIND_ORDER;
+    if (t.type === 'lparen') return ['('];
+    if (t.type === 'rparen') return [')'];
+    return ['='];
+  });
+
+  // 正向：forward[i] = 处理完前 i 个 token 后可能处于的状态
+  const forward = Array.from({ length: n + 1 }, () => new Set());
+  forward[0].add(M_WANT_ATOM);
+  for (let i = 0; i < n; i++) {
+    for (const mode of forward[i]) {
+      for (const k of kindsAt[i]) {
+        const to = step(mode, k, depthBefore[i]);
+        if (to) forward[i + 1].add(to);
+      }
+    }
+  }
+  // 反向：backward[i] = 从该状态出发能把 i..n-1 走完的状态集合
+  const backward = Array.from({ length: n + 1 }, () => new Set());
+  if (depth === 0) for (const m of TERMINAL_MODES) backward[n].add(m);
+  for (let i = n - 1; i >= 0; i--) {
+    for (const from of ALL_MODES) {
+      for (const k of kindsAt[i]) {
+        const to = step(from, k, depthBefore[i]);
+        if (to && backward[i + 1].has(to)) { backward[i].add(from); break; }
+      }
+    }
+  }
+
+  const allowedBySlot = [];
+  const typedLayout = tokens
+    .map((t, i) => {
+      if (!t.hidden) return t.symbol;
+      const kinds = [];
+      for (const kind of KIND_ORDER) {
+        let ok = false;
+        for (const s of forward[i]) {
+          const to = step(s, kind, depthBefore[i]);
+          if (to && backward[i + 1].has(to)) { ok = true; break; }
+        }
+        if (ok) kinds.push(kind);
+      }
+      allowedBySlot[t.slotIndex] = kinds;
+      return `[${kinds.map((k) => KIND_CODE[k]).join('')}]`;
+    })
+    .join(' ');
+
+  return { allowed: allowedBySlot, typedLayout };
+}
 
 /**
  * 确定性结算：每个槽位仍可能的符号集合，以及其它可由反馈推出的场况
@@ -171,11 +313,22 @@ export function computeCandidates(tokens, difficulty, history) {
   }
 
   // 兜底：理论上不会出现空集合（真值永不被排除）；若出现说明输入矛盾，退回全池
-  const result = candidates.map((set, i) => {
+  const byFeedback = candidates.map((set, i) => {
     if (set.size > 0) return [...set];
     if (locked[i]) return [locked[i]]; // 绿格锁定的槽位不允许被清空
     return [...pool];
   });
+
+  // 语法层收紧：只保留该槽位在语法上允许的符号类别（数字格不再可能出现运算符）
+  const { allowed, typedLayout } = analyzeStructure(tokens);
+  const result = byFeedback.map((list, i) => {
+    const kinds = allowed[i];
+    if (!kinds || kinds.length === 0) return list;
+    const kindSet = new Set(kinds);
+    const kept = list.filter((s) => kindSet.has(symbolKind(s)));
+    return kept.length > 0 ? kept : list; // 绝不清空：真值永远保留
+  });
+
   const openSlots = [];
   for (let i = 0; i < slotCount; i++) if (result[i].length >= 2) openSlots.push(i);
 
@@ -185,11 +338,13 @@ export function computeCandidates(tokens, difficulty, history) {
   for (const s of pool) {
     const lo = minCount.get(s) || 0;
     const hi = maxCount.get(s) ?? null;
-    if (lo > 0 || hi !== null) countMin[displayOf(s)] = lo;
-    if (lo > 0 || hi !== null) countMax[displayOf(s)] = hi;
+    if (lo > 0 || hi !== null) {
+      countMin[displayOf(s)] = lo;
+      countMax[displayOf(s)] = hi;
+    }
   }
 
-  return { candidates: result, openSlots, locked, countMin, countMax };
+  return { candidates: result, openSlots, locked, countMin, countMax, allowedKinds: allowed, typedLayout };
 }
 
 /**
@@ -205,7 +360,8 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
 
   const pool = symbolPool(difficulty);
   const safeHistory = (Array.isArray(history) ? history : []).slice(-MAX_HISTORY);
-  const { candidates, openSlots, locked, countMin, countMax } = computeCandidates(tokens, difficulty, safeHistory);
+  const { candidates, openSlots, locked, countMin, countMax, allowedKinds, typedLayout } =
+    computeCandidates(tokens, difficulty, safeHistory);
 
   // 玩家手动指定的槽位优先：只问这一个（省 token，也更贴合玩家意图）。
   // 指定的槽位若已被反馈逻辑锁定（候选只剩 1 个），则退回自动推荐。
@@ -241,10 +397,24 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
       feedback_legend: 'G = correct symbol in the correct slot. Y = the symbol IS in the equation but this is the wrong slot for it. B = the equation contains no more unmatched copies of this symbol.',
       display_forms: 'sqrt is displayed as √, log (base 10) as lg, multiplication as ×, division as ÷, subtraction as −.'
     },
+    grammar: {
+      note: 'STRUCTURAL RULES the equation obeys. A slot never holds a symbol of the wrong kind — use typed_layout and possible_kinds below instead of guessing.',
+      shape: 'S := A (op A)* "=" number,  where A := digits | constant (π or e) | function "(" S ")" | "(" S ")"',
+      rules: [
+        'Everything after "=" is digits only — never an operator, function or constant.',
+        'Every function (√ sin cos tan lg ln abs) is immediately followed by a visible "(".',
+        'An operator (+ − × ÷ ^) always sits between two complete operands; it never starts the expression and never comes right after "(" or "^".',
+        'A constant (π or e) never comes right after a digit or ")" — it starts a fresh operand.',
+        'There is no implicit multiplication and no unary minus: two operands are always joined by an explicit operator.',
+        'A digit slot may sit next to another digit slot only when they form one multi-digit number.'
+      ],
+      typed_layout_legend: 'typed_layout lists every token left to right. Visible tokens appear as themselves; a hidden slot appears as a bracket of the kinds it could still be: d = digit, c = constant, o = operator, f = function. Example: "[f][d][o][d] = [d][d]" means slot 1 must be a function, slot 2 a digit, slot 3 an operator, ...'
+    },
     difficulty,
     symbol_alphabet: alphabet,
     slot_count: slotCount,
     board: renderBoard(tokens, null),
+    typed_layout: typedLayout,
     slots_already_known: lockedSlots,
     guesses_so_far: safeHistory.map((entry) => ({
       slots: entry.guess.map((s) => displayOf(s)),
@@ -261,23 +431,26 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
         String(i + 1),
         {
           slot: i + 1,
+          possible_kinds: (allowedKinds[i] || []).map((k) => KIND_LABEL[k]),
           candidates_not_ruled_out: candidates[i].map(displayOf)
         }
       ])
     ),
-    task: 'For every slot listed in slots_still_open, rank its candidates_not_ruled_out by how likely each one is to fill that slot.'
+    task: 'For every slot listed in slots_still_open, rank its candidates_not_ruled_out by how likely each one is to fill that slot. Respect possible_kinds: never let a kind that is not allowed win.'
   };
 
   const questions = {};
   for (const i of asked) {
     const options = candidates[i];
+    const kindLabels = (allowedKinds[i] || []).map((k) => KIND_LABEL[k]);
     questions[`slot_${i + 1}`] = {
       type: 'choice',
       instructions: {
         question: `Hidden slot ${i + 1}: which single symbol most likely belongs in this slot?`,
         slot: i + 1,
+        slot_kinds_possible: kindLabels,
         candidates_not_ruled_out: options.map(displayOf),
-        note: 'The candidates listed are the only symbols not yet ruled out for this slot by the guess history. Judge among them using the board structure, the occurrence bounds, and the feedback of every entry in guesses_so_far. The probabilities you return are shown to the player as a ranked list from most to least likely, so spread them over the candidates you consider genuinely plausible.'
+        note: 'The candidates listed are the only symbols not yet ruled out for this slot by BOTH the structural rules (see grammar / typed_layout) and the guess history. Judge among them using the equation structure, the occurrence bounds, and the feedback of every entry in guesses_so_far. The probabilities you return are shown to the player as a ranked list from most to least likely, so spread them over the candidates you consider genuinely plausible.'
       },
       criteria: Object.fromEntries(options.map((s) => [displayOf(s), SYMBOL_MEANING[s] || 'symbol']))
     };

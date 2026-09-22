@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Icon from './Icons.jsx';
 
 // 提示次数用尽的弹窗提醒（按需求：到限额跳弹窗，而不是写在提示按钮旁）
@@ -15,6 +16,7 @@ function formatRemaining(resetAt) {
 
 export default function HintLimitDialog({ open, onClose, message, quota }) {
   const [remainingText, setRemainingText] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!open) return;
@@ -28,6 +30,12 @@ export default function HintLimitDialog({ open, onClose, message, quota }) {
 
   const loggedIn = !!quota?.logged_in;
   const limit = quota?.limit ?? (loggedIn ? 100 : 1);
+
+  // 去主菜单并把登录弹窗直接打开
+  const goLogin = () => {
+    onClose();
+    navigate('/?auth=login');
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -59,17 +67,34 @@ export default function HintLimitDialog({ open, onClose, message, quota }) {
 
         {!loggedIn && (
           <p className="text-sm text-neutral-400 leading-relaxed">
-            未登录每天可提示 <span className="text-neutral-200 font-medium">1</span> 次；
-            回到主菜单登录后，每天可提示 <span className="text-neutral-200 font-medium">100</span> 次。
+            未登录每天可提示 <span className="text-neutral-200 font-medium">1</span> 次。
+            登录后每天可提示 <span className="text-neutral-200 font-medium">100</span> 次。
           </p>
         )}
 
-        <button
-          onClick={onClose}
-          className="w-full bg-neutral-100 text-neutral-950 py-3 rounded-lg font-semibold hover:bg-neutral-200 transition"
-        >
-          知道了
-        </button>
+        {!loggedIn ? (
+          <div className="space-y-2">
+            <button
+              onClick={goLogin}
+              className="w-full bg-neutral-100 text-neutral-950 py-3 rounded-lg font-bold hover:bg-neutral-200 transition"
+            >
+              登录 / 注册，每天 100 次提示
+            </button>
+            <button
+              onClick={onClose}
+              className="w-full bg-neutral-800 text-neutral-300 py-2.5 rounded-lg font-medium hover:bg-neutral-700 transition text-sm"
+            >
+              以后再说
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onClose}
+            className="w-full bg-neutral-100 text-neutral-950 py-3 rounded-lg font-semibold hover:bg-neutral-200 transition"
+          >
+            知道了
+          </button>
+        )}
       </div>
     </div>
   );

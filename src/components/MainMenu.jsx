@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DIFFICULTY_LABELS, DIFFICULTY_ACTIVE } from '../lib/constants.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 import Icon from './Icons.jsx';
@@ -15,6 +16,17 @@ export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLead
 
   const mainRef = useRef(null);
   const [fits, setFits] = useState(true); // 主内容能否一页放下
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // 从别处跳过来要登录（如提示次数用完的弹窗 → /?auth=login）：直接打开登录弹窗
+  useEffect(() => {
+    if (loading || user) return;
+    if (searchParams.get('auth') === 'login') {
+      openAuth('login');
+      setSearchParams({}, { replace: true }); // 清掉参数，避免返回/刷新时又弹
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, loading, user]);
 
   // 一页放下则禁用滚动，否则主区内部滚动
   useEffect(() => {
