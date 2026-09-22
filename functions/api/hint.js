@@ -369,6 +369,8 @@ export async function onRequestPost(context) {
     // 玩家是否手动指定了槽位；指定了但该槽已被逻辑锁定时 focus_applied=false（退回自动推荐）
     focus_applied: !!built.focusApplied,
     requested_slot: built.requestedSlot,
+    // 该槽位在语法上允许的符号类别（1 类=唯一解型提示，多类=这格本身有歧义）
+    slot_kinds: built.slotKinds?.[best.slotIndex] || [],
     model: result.data?.model || 'jev-latest',
     quota: quotaPayload({ loggedIn, limit, used: nextUsed, resetAt })
   }, 200, setCookie);

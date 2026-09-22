@@ -23,6 +23,14 @@ function topPick(result) {
   return list.length ? list[0] : null;
 }
 
+// 语法类别 → 中文说明。1 类=这格只有一种可能（提示更可信）；多类=这格本身有歧义。
+const KIND_LABELS = {
+  digit: '数字 0-9',
+  constant: '常量 π 或 e',
+  operator: '运算符 + − × ÷ ^',
+  function: '函数 √ sin cos tan lg ln abs'
+};
+
 export default function HintPanel({ result, results = [], activeIndex = 0, onSelect, onClose }) {
   const [open, setOpen] = useState(true);
 
@@ -102,6 +110,29 @@ export default function HintPanel({ result, results = [], activeIndex = 0, onSel
             <p className="text-xs text-neutral-400">
               你指定的第 {result.requested_slot + 1} 槽已被反馈逻辑锁定（只剩唯一可能），
               所以这次改为推荐其他槽位。
+            </p>
+          )}
+
+          {/* 这格语法上允许哪几类符号：1 类=更可信；多类=这格本身有歧义，别当成乱猜 */}
+          {(result.slot_kinds || []).length > 0 && (
+            <p className="text-xs leading-relaxed">
+              {(result.slot_kinds || []).length === 1 ? (
+                <>
+                  <span className="text-neutral-500">这格语法上只可能是：</span>
+                  <span className="text-green-300">{KIND_LABELS[result.slot_kinds[0]] || result.slot_kinds[0]}</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-neutral-500">这格语法上可能是：</span>
+                  {(result.slot_kinds || []).map((k, idx) => (
+                    <span key={k}>
+                      {idx > 0 && <span className="text-neutral-600"> / </span>}
+                      <span className="text-amber-300/90">{KIND_LABELS[k] || k}</span>
+                    </span>
+                  ))}
+                  <span className="text-neutral-600">（存在歧义，未必是符号被认错）</span>
+                </>
+              )}
             </p>
           )}
 

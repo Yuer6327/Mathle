@@ -461,6 +461,8 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
     slotIds: asked,
     slotCount,
     focusApplied,
-    requestedSlot: focus
+    requestedSlot: focus,
+    /** 被问槽位在语法上允许的类别（给前端展示，让玩家知道这格是否真的有歧义） */
+    slotKinds: Object.fromEntries(asked.map((i) => [i, allowedKinds[i] || []]))
   };
 }
