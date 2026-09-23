@@ -12,7 +12,6 @@
 //   面向用户的 UI 仍为中文。
 
 import { SYMBOL_POOLS, SYMBOL_DISPLAY, DIFFICULTIES } from '../../../src/lib/constants.js';
-import { lookupKinds, shapeOfBoard } from '../../../src/lib/boardKinds.js';
 
 /**
  * 自动模式单次请求最多问几个槽位。
@@ -199,32 +198,39 @@ function step(mode, kind, depth) {
 }
 
 /**
- * 算出每个槽位在语法上允许的符号类别。
+ * 算出每个槽位在结构上允许的符号类别。
  *
  * 两条路：
- *  ① **查表（首选）**：传 tableEntry（来自 src/lib/boardKinds.js，由生成器穷举采样得到）时直接用它。
- *     生成器的模板比通用语法窄得多——实测同一棋盘形状下生成器几乎每格都是唯一类别，
- *     而语法 DP 只有 52%~60% 唯一，多出来的都是「假歧义」（比如明明是运算符格却说可能是数字）。
- *     棋盘上已经用「下划线=数字格 / 灰框=运算符格」把类别画出来了，提示必须与之一致。
- *  ② **语法 DP（回退）**：形状未收录时用「正向可达 × 反向可达」两遍状态机，保证 sound
- *     （真值类别永不被排除）。
+ *  ① **客户端上报（首选）**：`clientKinds` 是客户端从「它自己在棋盘上渲染出来的格子」
+ *     推出的类别代号（d/c/o/f）。棋盘用「下划线=数字格 / 灰框=运算符格」把类别画出来了，
+ *     所以这属于**玩家可见信息**，不构成给模型开小灶。调用方需先用语法 DP 校验它是子集，
+ *     避免伪造的类别把真值排除掉。
+ *  ② **语法 DP（回退）**：形状未上报或用不上时，用「正向可达 × 反向可达」两遍状态机，
+ *     保证 sound（真值类别永不被排除）。
  *
  * ⚠️ 必须传 poolKinds：**入门档的池里没有常量**（只有 10 个数字 + + − × ^ + √），
  * 不取交集就会把「确定是数字」的格子标成「数字/常量」，凭空造出根本不存在的类别。
  *
  * @param {object[]} tokens
  * @param {Set<string>|null} poolKinds 该难度符号池里实际存在的类别
- * @param {string[]|null} tableKinds 精确类别（每槽一位，如 ['d','o','d']，与 slotIndex 对齐）
+ * @param {string[]|null} clientKinds 客户端上报的类别代号（每槽一位，如 ['d','o','d']，与 slotIndex 对齐）
  * @returns {{ allowed: string[][], typedLayout: string }}
- *   allowed 按【槽位序号】索引（allowed[slotIndex]），与 candidates 对齐。
+ *   allowed 按【槽位序号】索引（allowed[slotIndex]），与槽位对齐。
  */
-export function analyzeStructure(tokens, poolKinds = null, tableKinds = null) {
-  if (Array.isArray(tableKinds) && tableKinds.length) {
+export function analyzeStructure(tokens, poolKinds = null, clientKinds = null) {
+  if (Array.isArray(clientKinds) && clientKinds.length) {
     const order = new Map(KIND_ORDER.map((k, i) => [k, i]));
-    const allowed = tableKinds.map((code) => [...code]
+    const toKinds = (code) => [...String(code ?? '')]
       .map((c) => CODE_TO_KIND[c])
       .filter((k) => k && (!poolKinds || poolKinds.has(k)))
-      .sort((a, b) => order.get(a) - order.get(b)));
+      .sort((a, b) => order.get(a) - order.get(b));
+    let allowed = clientKinds.map(toKinds);
+    // 上报缺失/不可信的槽位（算出来是空集）逐槽退回语法 DP ——
+    // 不要把整格退化成全池（那等于放宽到没有约束）
+    if (allowed.some((k) => k.length === 0)) {
+      const dpAllowed = analyzeByGrammar(tokens, poolKinds).allowed;
+      allowed = allowed.map((k, i) => (k.length ? k : (dpAllowed[i] || [])));
+    }
     const typedLayout = tokens
       .map((t) => (t.hidden ? `[${(allowed[t.slotIndex] || []).map((k) => KIND_CODE[k]).join('')}]` : t.symbol))
       .join(' ');
@@ -299,24 +305,24 @@ function analyzeByGrammar(tokens, poolKinds = null) {
 }
 
 /**
- * 确定性结算：每个槽位仍可能的符号集合，以及其它可由反馈推出的场况
- * @returns {{ candidates: string[][], openSlots: number[], locked: (string|null)[],
- *             countMin: object, countMax: object }}
- *   candidates[i] 为槽位 i（0 基）仍可能的内部符号数组；
- *   openSlots 为候选数 ≥2 的槽位（即"还没被逻辑锁定"的槽位）；
- *   locked[i] 为绿色反馈锁定住的符号（否则 null）；
- *   countMin/countMax 为该符号在等式中出现次数的下界/上界（上界 null 表示未知）。
+ * 反馈层推导：从「猜测历史 + G/Y/B 反馈」推出玩家已经能排除的符号。
+ *
+ * ⚠️ 这些结论**只用于两处**：① 前端把玩家已排除的符号标灰；② 选格调度避免问到已被逼到唯一的格。
+ *    **绝不写进送给模型的 state**——模型必须自己从 guesses_so_far 里做排除法，
+ *    否则就等于替它把题解完了（这是用户明确要求的设计边界）。
+ *
+ * @returns {{ excludedPerSlot: Set<string>[], greenLocked: (string|null)[],
+ *             globallyAbsent: Set<string>, countMin: Map, countMax: Map }}
  */
-export function computeCandidates(tokens, difficulty, history) {
+export function deriveFeedbackState(tokens, difficulty, history) {
   const pool = symbolPool(difficulty);
   const slotCount = countSlots(tokens);
   const poolSet = new Set(pool);
-  const candidates = Array.from({ length: slotCount }, () => new Set(pool));
-  /** 被绿色反馈锁定的槽位（该槽答案已知） */
-  const locked = new Array(slotCount).fill(null);
-  /** 某符号在等式中的最小出现次数（minCount(s)）与最大出现次数（maxCount(s)） */
-  const minCount = new Map();
-  const maxCount = new Map();
+  const excludedPerSlot = Array.from({ length: slotCount }, () => new Set());
+  /** 被绿色反馈锁定的槽位（该槽答案玩家已知） */
+  const greenLocked = new Array(slotCount).fill(null);
+  const countMin = new Map();
+  const countMax = new Map();
 
   for (const entry of history) {
     const guess = entry?.guess;
@@ -324,8 +330,7 @@ export function computeCandidates(tokens, difficulty, history) {
     if (!Array.isArray(guess) || !Array.isArray(feedback)) continue;
     if (guess.length !== slotCount || feedback.length !== slotCount) continue;
 
-    // 本次猜测里每个符号的「标绿+标黄」数量，以及是否出现过标灰
-    const colored = new Map();
+    const colored = new Map();   // 本次猜测里该符号标绿+标黄的数量
     const sawAbsent = new Set();
 
     for (let i = 0; i < slotCount; i++) {
@@ -334,70 +339,74 @@ export function computeCandidates(tokens, difficulty, history) {
       if (typeof g !== 'string' || !poolSet.has(g)) continue;
       if (f === 'correct') {
         colored.set(g, (colored.get(g) || 0) + 1);
-        candidates[i] = new Set([g]); // 绿：该槽锁定
-        locked[i] = g;
+        greenLocked[i] = g;
+        for (const s of pool) if (s !== g) excludedPerSlot[i].add(s); // 绿格：其余符号全排除
       } else {
-        // 黄或灰：该槽位不是这个符号
-        candidates[i].delete(g);
+        excludedPerSlot[i].add(g); // 黄或灰：该槽不是这个符号
         if (f === 'present') colored.set(g, (colored.get(g) || 0) + 1);
         if (f === 'absent') sawAbsent.add(g);
       }
     }
 
-    for (const [s, c] of colored) {
-      minCount.set(s, Math.max(minCount.get(s) || 0, c));
-    }
+    for (const [s, c] of colored) countMin.set(s, Math.max(countMin.get(s) || 0, c));
     // 某符号出现过灰 → 等式内该符号总数 == 本次猜测中标绿+标黄的数量
     for (const s of sawAbsent) {
-      const upper = colored.get(s) || 0;
-      maxCount.set(s, Math.min(maxCount.get(s) ?? Infinity, upper));
+      countMax.set(s, Math.min(countMax.get(s) ?? Infinity, colored.get(s) || 0));
     }
   }
 
-  // 出现次数上限为 0 的符号：等式里根本没有它 → 从所有槽位剔除
+  // 出现次数上限为 0 → 等式里根本没有它 → 全槽排除
+  const globallyAbsent = new Set();
   for (const s of pool) {
-    if ((maxCount.get(s) ?? Infinity) === 0) {
-      for (const set of candidates) set.delete(s);
+    if ((countMax.get(s) ?? Infinity) === 0) {
+      globallyAbsent.add(s);
+      for (const set of excludedPerSlot) set.add(s);
     }
   }
 
-  // 兜底：理论上不会出现空集合（真值永不被排除）；若出现说明输入矛盾，退回全池
-  const byFeedback = candidates.map((set, i) => {
-    if (set.size > 0) return [...set];
-    if (locked[i]) return [locked[i]]; // 绿格锁定的槽位不允许被清空
-    return [...pool];
-  });
+  return { excludedPerSlot, greenLocked, globallyAbsent, countMin, countMax };
+}
 
-  // 语法层收紧：只保留该槽位在语法上允许的符号类别（数字格不再可能出现运算符）
-  // 同时与「该难度符号池里实际存在的类别」取交集，避免标出根本不存在的类别。
-  // 优先查生成器穷举得到的精确表（与棋盘上画的「下划线=数字格 / 灰框=运算符格」完全一致）。
+/**
+ * 结构层 + 反馈层合并结果。
+ *
+ * - `structural`：该槽**结构上允许**的符号（内部符号）。这是给模型的可选项——
+ *   只受「类别约束 + 该难度符号池」限制，**不按反馈过滤**。
+ * - `remaining`：structural 再扣掉玩家已排除的。**仅用于调度**，不给模型。
+ * - `askable`：可提示的槽位 = 结构上 ≥2 个符号 且 未被绿锁 且 反馈未把它逼到唯一。
+ *
+ * @returns {{ structural: string[][], remaining: string[][], askable: number[],
+ *             allowedKinds: string[][], typedLayout: string,
+ *             excludedPerSlot: Set<string>[], greenLocked: (string|null)[],
+ *             globallyAbsent: Set<string> }}
+ */
+export function computeCandidates(tokens, difficulty, history, clientKinds = null) {
+  const pool = symbolPool(difficulty);
+  const slotCount = countSlots(tokens);
+
+  // 结构层：类别（客户端上报优先，DP 回退）∩ 该难度符号池
   const poolKinds = new Set(pool.map(symbolKind));
-  const tableEntry = lookupKinds(difficulty, shapeOfBoard(tokens));
-  const { allowed, typedLayout } = analyzeStructure(tokens, poolKinds, tableEntry);
-  const result = byFeedback.map((list, i) => {
-    const kinds = allowed[i];
-    if (!kinds || kinds.length === 0) return list;
+  const { allowed, typedLayout } = analyzeStructure(tokens, poolKinds, clientKinds);
+  const structural = allowed.map((kinds) => {
+    if (!kinds || kinds.length === 0) return [...pool]; // 兜底：绝不清空（真值永远保留）
     const kindSet = new Set(kinds);
-    const kept = list.filter((s) => kindSet.has(symbolKind(s)));
-    return kept.length > 0 ? kept : list; // 绝不清空：真值永远保留
+    const kept = pool.filter((s) => kindSet.has(symbolKind(s)));
+    return kept.length > 0 ? kept : [...pool];
   });
 
-  const openSlots = [];
-  for (let i = 0; i < slotCount; i++) if (result[i].length >= 2) openSlots.push(i);
+  // 反馈层（只服务于标灰与调度）
+  const fb = deriveFeedbackState(tokens, difficulty, history);
+  const remaining = structural.map((list, i) => list.filter((s) => !fb.excludedPerSlot[i].has(s)));
 
-  // 可由反馈推出的「每个符号在等式中出现几次」的上下界，一并交给模型
-  const countMin = {};
-  const countMax = {};
-  for (const s of pool) {
-    const lo = minCount.get(s) || 0;
-    const hi = maxCount.get(s) ?? null;
-    if (lo > 0 || hi !== null) {
-      countMin[displayOf(s)] = lo;
-      countMax[displayOf(s)] = hi;
-    }
+  const askable = [];
+  for (let i = 0; i < slotCount; i++) {
+    if (fb.greenLocked[i]) continue;          // 玩家已知答案，别浪费额度
+    if (structural[i].length < 2) continue;   // 结构唯一，没有排序空间
+    if (remaining[i].length < 2) continue;    // 反馈已把它逼到唯一（仅调度用）
+    askable.push(i);
   }
 
-  return { candidates: result, openSlots, locked, countMin, countMax, allowedKinds: allowed, typedLayout };
+  return { structural, remaining, askable, allowedKinds: allowed, typedLayout, ...fb };
 }
 
 /**
@@ -405,7 +414,7 @@ export function computeCandidates(tokens, difficulty, history) {
  * @returns {{ body: object, slotIds: number[], slotCount: number } | { error: string }}
  *   slotIds[k] 与 questions['slot_' + n] 对应；n 为 1 基槽位号
  */
-export function buildJevRequest({ difficulty, tokens, history, excludeSlots = [], currentGuess = null, focusSlot = null }) {
+export function buildJevRequest({ difficulty, tokens, history, excludeSlots = [], currentGuess = null, focusSlot = null, slotKinds = null }) {
   if (!DIFFICULTIES.includes(difficulty)) return { error: '难度无效' };
   if (!Array.isArray(tokens) || tokens.length === 0) return { error: '棋盘缺失' };
   const slotCount = countSlots(tokens);
@@ -413,29 +422,26 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
 
   const pool = symbolPool(difficulty);
   const safeHistory = (Array.isArray(history) ? history : []).slice(-MAX_HISTORY);
-  const { candidates, openSlots, locked, countMin, countMax, allowedKinds, typedLayout } =
-    computeCandidates(tokens, difficulty, safeHistory);
+  // 客户端上报的「棋盘上画出来的类别」（玩家可见信息）；长度不符一律忽略，退回语法 DP
+  const clientKinds = Array.isArray(slotKinds) && slotKinds.length === slotCount ? slotKinds : null;
+  const { structural, askable, allowedKinds, typedLayout, excludedPerSlot } =
+    computeCandidates(tokens, difficulty, safeHistory, clientKinds);
 
   // 玩家手动指定的槽位优先：只问这一个（省 token，也更贴合玩家意图）。
-  // 指定的槽位若已被反馈逻辑锁定（候选只剩 1 个），则退回自动推荐。
+  // 指定的槽位若不可问（结构唯一 / 已被反馈锁定），则退回自动推荐。
   const focus = Number.isInteger(focusSlot) && focusSlot >= 0 && focusSlot < slotCount ? focusSlot : null;
-  const focusApplied = focus !== null && openSlots.includes(focus);
+  const focusApplied = focus !== null && askable.includes(focus);
 
-  // 自动模式下：本局已经提示过的槽位优先跳过（避免重复给同一格），全被排除时退回完整列表
+  // 自动模式：跳过本局已经提示过的槽位；按棋盘顺序问【最左】的未提示格
   const exclude = new Set((Array.isArray(excludeSlots) ? excludeSlots : []).filter((i) => Number.isInteger(i)));
-  let usable = focusApplied ? [focus] : openSlots.filter((i) => !exclude.has(i));
-  if (!focusApplied && usable.length === 0) usable = openSlots;
+  let usable = focusApplied ? [focus] : askable.filter((i) => !exclude.has(i));
+  if (!focusApplied && usable.length === 0) usable = askable;
 
-  // 自动模式优先询问候选最少的槽位（信息量最大）
-  const ranked = [...usable].sort((a, b) => candidates[a].length - candidates[b].length || a - b);
+  const ranked = [...usable].sort((a, b) => a - b);
   const asked = ranked.slice(0, focusApplied ? 1 : MAX_QUESTIONS);
   if (asked.length === 0) return { error: '没有可提示的槽位' };
 
   const alphabet = pool.map((s) => ({ symbol: displayOf(s), meaning: SYMBOL_MEANING[s] || 'symbol' }));
-
-  // 已由绿色反馈锁定的槽位（玩家一定已经知道）
-  const lockedSlots = {};
-  locked.forEach((sym, i) => { if (sym) lockedSlots[i + 1] = displayOf(sym); });
 
   // 玩家当前正在填、还没提交的那一行
   const pending = Array.isArray(currentGuess) && currentGuess.some((s) => s != null)
@@ -451,7 +457,7 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
       display_forms: 'sqrt is displayed as √, log (base 10) as lg, multiplication as ×, division as ÷, subtraction as −.'
     },
     grammar: {
-      note: 'STRUCTURAL RULES the equation obeys. A slot never holds a symbol of the wrong kind — use typed_layout and possible_kinds below instead of guessing.',
+      note: 'These are the structural laws the equation obeys. Work each slot out YOURSELF from the board, typed_layout, these rules and the G/Y/B feedback in guesses_so_far — no pre-computed candidate list and no symbol-count tables are provided, on purpose. You are expected to do the elimination yourself.',
       shape: 'S := A (op A)* "=" number,  where A := digits | constant (π or e) | function "(" S ")" | "(" S ")"',
       rules: [
         'Everything after "=" is digits only — never an operator, function or constant.',
@@ -462,40 +468,34 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
         'A digit slot may sit next to another digit slot only when they form one multi-digit number.'
       ],
       typed_layout_legend: 'typed_layout lists every token left to right. Visible tokens appear as themselves; a hidden slot appears as a bracket of the kinds it could still be: d = digit, c = constant, o = operator, f = function. Example: "[f][d][o][d] = [d][d]" means slot 1 must be a function, slot 2 a digit, slot 3 an operator, ...',
-      board_legend: 'On the board every hidden slot is drawn as ONE of two shapes, and the player can see which: an underlined blank means a NUMBER slot (digits 0-9, or π / e), a grey filled box means an OPERATOR slot (the operators + − × ÷ ^, or a function name such as √ sin cos tan lg ln abs). So the kind of each slot is already visible to the player — typed_layout above agrees with it, and candidates never mix the two kinds unless a slot is genuinely ambiguous.'
+      board_legend: 'On the board every hidden slot is drawn as ONE of two shapes, and the player can see which: an underlined blank means a NUMBER slot (digits 0-9, or π / e), a grey filled box means an OPERATOR slot (the operators + − × ÷ ^, or a function name such as √ sin cos tan lg ln abs). typed_layout above agrees with that, and allowed_symbols never crosses the two kinds.'
     },
     difficulty,
     symbol_alphabet: alphabet,
     slot_count: slotCount,
     board: renderBoard(tokens, null),
     typed_layout: typedLayout,
-    slots_already_known: lockedSlots,
     guesses_so_far: safeHistory.map((entry) => ({
       slots: entry.guess.map((s) => displayOf(s)),
       feedback: entry.feedback.map((f) => FEEDBACK_CODE[f] || '?')
     })),
     player_current_unsubmitted_guess: pending,
-    symbol_occurrence_bounds: {
-      note: 'How many times each symbol must occur in the whole equation, as far as the feedback proves. min = at least this many, max = at most this many (null = no upper bound known).',
-      min: countMin,
-      max: countMax
-    },
-    slots_still_open: Object.fromEntries(
+    slots_to_guess: Object.fromEntries(
       asked.map((i) => [
         String(i + 1),
         {
           slot: i + 1,
           possible_kinds: (allowedKinds[i] || []).map((k) => KIND_LABEL[k]),
-          candidates_not_ruled_out: candidates[i].map(displayOf)
+          allowed_symbols: structural[i].map(displayOf)
         }
       ])
     ),
-    task: 'For every slot listed in slots_still_open, rank its candidates_not_ruled_out by how likely each one is to fill that slot. Respect possible_kinds: never let a kind that is not allowed win.'
+    task: 'For every slot listed in slots_to_guess, rank its allowed_symbols by how likely each symbol is to fill it. allowed_symbols is only the set of symbols whose KIND is structurally permitted in that slot — it is NOT filtered by the feedback, so some of them may already be impossible. Use every entry in guesses_so_far (mind which slots came back G / Y / B) to work out which ones those are and give them the lowest probability.'
   };
 
   const questions = {};
   for (const i of asked) {
-    const options = candidates[i];
+    const options = structural[i];
     const kindLabels = (allowedKinds[i] || []).map((k) => KIND_LABEL[k]);
     questions[`slot_${i + 1}`] = {
       type: 'choice',
@@ -503,8 +503,8 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
         question: `Hidden slot ${i + 1}: which single symbol most likely belongs in this slot?`,
         slot: i + 1,
         slot_kinds_possible: kindLabels,
-        candidates_not_ruled_out: options.map(displayOf),
-        note: 'The candidates listed are the only symbols not yet ruled out for this slot by BOTH the structural rules (see grammar / typed_layout) and the guess history. Judge among them using the equation structure, the occurrence bounds, and the feedback of every entry in guesses_so_far. The probabilities you return are shown to the player as a ranked list from most to least likely, so spread them over the candidates you consider genuinely plausible.'
+        allowed_symbols: options.map(displayOf),
+        note: 'allowed_symbols lists every symbol whose kind is structurally permitted in this slot; it is NOT pre-filtered by the guess feedback, so part of your job is to eliminate: a symbol that came back B, or came back Y in this same slot, or whose copies in the equation are already fully accounted for, cannot go here. Judge from the board structure, typed_layout, the grammar rules and every entry in guesses_so_far. The probabilities you return are shown to the player as a ranked list from most to least likely, so spread them over the symbols you consider genuinely plausible.'
       },
       criteria: Object.fromEntries(options.map((s) => [displayOf(s), SYMBOL_MEANING[s] || 'symbol']))
     };
@@ -516,7 +516,9 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
     slotCount,
     focusApplied,
     requestedSlot: focus,
-    /** 被问槽位在语法上允许的类别（给前端展示，让玩家知道这格是否真的有歧义） */
-    slotKinds: Object.fromEntries(asked.map((i) => [i, allowedKinds[i] || []]))
+    /** 被问槽位在结构上允许的类别（给前端展示，让玩家知道这格是数字格还是运算符格） */
+    slotKinds: Object.fromEntries(asked.map((i) => [i, allowedKinds[i] || []])),
+    /** 玩家已排除的符号（只给前端标灰用，绝不进 state） */
+    excludedSymbols: Object.fromEntries(asked.map((i) => [i, [...(excludedPerSlot[i] || [])]]))
   };
 }

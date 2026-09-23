@@ -51,6 +51,9 @@ export default function HintPanel({ result, results = [], activeIndex = 0, onSel
   const manual = !!result.focus_applied;
   const focusIgnored = result.requested_slot != null && !result.focus_applied;
   const best = topPick(result);
+  // 玩家自己从反馈里已经排除的符号：只影响这里的置灰，不参与模型的排序
+  const excluded = new Set(Array.isArray(result.excluded_symbols) ? result.excluded_symbols : []);
+  const excludedCount = list.filter((x) => excluded.has(x.symbol)).length;
 
   return (
     <div
@@ -161,7 +164,7 @@ export default function HintPanel({ result, results = [], activeIndex = 0, onSel
             </div>
           )}
 
-          {/* 按概率从大到小自上而下排列 */}
+          {/* 按概率从大到小自上而下排列；玩家自己已排除的符号标灰划掉 */}
           <ol className="space-y-1 max-h-72 overflow-y-auto pr-0.5">
             {list.map((item, idx) => (
               <ProbRow
@@ -171,6 +174,7 @@ export default function HintPanel({ result, results = [], activeIndex = 0, onSel
                 probability={item.probability}
                 ratio={maxP > 0 ? item.probability / maxP : 0}
                 highlight={idx === 0}
+                muted={excluded.has(item.symbol)}
               />
             ))}
           </ol>
@@ -179,7 +183,10 @@ export default function HintPanel({ result, results = [], activeIndex = 0, onSel
             <span className={`px-1.5 py-0.5 rounded border ${band.cls}`}>
               信心 {band.label} {(result.confidence ?? 0).toFixed(2)}
             </span>
-            <span className="text-neutral-500">候选 {list.length} 个符号</span>
+            <span className="text-neutral-500">
+              结构允许 {list.length} 个符号
+              {excludedCount > 0 && ` · 已划掉你排除的 ${excludedCount} 个`}
+            </span>
             {result.model && <span className="text-neutral-600">{result.model}</span>}
           </div>
         </div>
@@ -188,24 +195,29 @@ export default function HintPanel({ result, results = [], activeIndex = 0, onSel
   );
 }
 
-function ProbRow({ rank, symbol, probability, ratio, highlight = false }) {
+function ProbRow({ rank, symbol, probability, ratio, highlight = false, muted = false }) {
   const pct = (probability * 100).toFixed(probability < 0.01 ? 1 : 0);
   return (
-    <li className="flex items-center gap-2">
+    <li className={`flex items-center gap-2 ${muted ? 'opacity-45' : ''}`}>
       <span className="w-3 shrink-0 text-right text-xs text-neutral-600 tabular-nums">{rank}</span>
       <span
-        className={`w-10 shrink-0 text-right font-bold ${highlight ? 'text-neutral-100' : 'text-neutral-300'}`}
+        className={`w-10 shrink-0 text-right font-bold ${
+          muted ? 'text-neutral-500 line-through' : highlight ? 'text-neutral-100' : 'text-neutral-300'
+        }`}
         style={{ fontFamily: 'ui-monospace, "SF Mono", monospace' }}
       >
         {displaySymbol(symbol)}
       </span>
       <span className="flex-1 h-2 rounded-full bg-neutral-800 overflow-hidden">
         <span
-          className={`block h-full rounded-full transition-all duration-300 ${highlight ? 'bg-neutral-100' : 'bg-neutral-500'}`}
+          className={`block h-full rounded-full transition-all duration-300 ${
+            muted ? 'bg-neutral-700' : highlight ? 'bg-neutral-100' : 'bg-neutral-500'
+          }`}
           style={{ width: `${Math.max(2, Math.round(ratio * 100))}%` }}
         />
       </span>
       <span className="w-11 shrink-0 text-xs text-neutral-400 tabular-nums text-right">{pct}%</span>
+      {muted && <span className="shrink-0 text-xs text-neutral-600" title="你的反馈已经排除这个符号">已排除</span>}
     </li>
   );
 }

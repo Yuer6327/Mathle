@@ -14,6 +14,8 @@ import {
   boardToTokens,
   countSlots,
   buildDisplayToInternal,
+  analyzeStructure,
+  symbolKind,
   MAX_HISTORY,
   MAX_SLOTS
 } from './_lib/hintPrompt.js';
@@ -132,7 +134,42 @@ function parseGamePayload(body, difficulty) {
     ? rawPending.map((s) => (s == null ? null : s))
     : null;
 
-  return { tokens, history, slotCount, currentGuess };
+  // 客户端上报的「棋盘上画出来的类别」（d/c/o/f，与槽位对齐）。
+  // 这是玩家可见信息（棋盘用下划线/灰框画的就是它），所以可以给模型。
+  // 宽松处理：任何不合法一律视为未上报 → 退回语法 DP，绝不 400。
+  const slotKinds = parseSlotKinds(body?.slot_kinds, slotCount, pool, tokens);
+
+  return { tokens, history, slotCount, currentGuess, slotKinds };
+}
+
+/**
+ * 校验客户端上报的槽位类别。
+ * ① 非数组 / 长度不符 / 含非法代号 → 整体丢弃（返回 null）
+ * ② 逐位与「该难度符号池里实际存在的类别」求交，交集空则该位丢弃
+ * ③ 用语法 DP 的允许集当校验器：上报类别若不落在 DP 允许集内，说明上报不可信 → 该位丢弃
+ *    （DP 是 sound 的，这样即使客户端伪造也不会把真值排除掉）
+ * @returns {string[]|null} 每槽一个类别代号
+ */
+export function parseSlotKinds(raw, slotCount, pool, tokens) {
+  if (!Array.isArray(raw) || raw.length !== slotCount) return null;
+  const CODES = new Set(['d', 'c', 'o', 'f']);
+  if (!raw.every((c) => typeof c === 'string' && CODES.has(c))) return null;
+
+  const CODE_TO_KIND = { d: 'digit', c: 'constant', o: 'operator', f: 'function' };
+  const poolKinds = new Set([...pool].map(symbolKind));
+  const allowed = analyzeStructure(tokens, poolKinds).allowed; // 语法 DP 允许集（sound）
+
+  const out = new Array(slotCount).fill(null);
+  let trust = 0;
+  for (let i = 0; i < slotCount; i++) {
+    const kind = CODE_TO_KIND[raw[i]];
+    if (!poolKinds.has(kind)) continue;              // ② 该难度没有这一类
+    if (!(allowed[i] || []).includes(kind)) continue; // ③ DP 不认这个类别
+    out[i] = raw[i];
+    trust++;
+  }
+  // 一个可信位都没有 → 视同未上报，交给 DP
+  return trust > 0 ? out : null;
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -297,13 +334,14 @@ export async function onRequestPost(context) {
     history: parsed.history,
     currentGuess: parsed.currentGuess,
     focusSlot,
+    slotKinds: parsed.slotKinds,
     excludeSlots: (Array.isArray(body?.exclude_slots) ? body.exclude_slots : [])
       .filter((i) => Number.isInteger(i) && i >= 0 && i < parsed.slotCount)
   });
   if (built.error) {
     return json({
       error: built.error === '没有可提示的槽位'
-        ? '当前所有空槽都已被反馈逻辑锁定，无需提示（本次不消耗次数）'
+        ? '没有可提示的槽位了（结构上唯一、或已被反馈锁定，本次不消耗次数）'
         : built.error,
       reason: 'no_hint_available'
     }, 400, setCookie);
@@ -366,11 +404,13 @@ export async function onRequestPost(context) {
     choice: best.choice,
     probabilities: best.probabilities,
     confidence: best.confidence,
-    // 玩家是否手动指定了槽位；指定了但该槽已被逻辑锁定时 focus_applied=false（退回自动推荐）
+    // 玩家是否手动指定了槽位；指定了但该槽不可问时 focus_applied=false（退回自动推荐）
     focus_applied: !!built.focusApplied,
     requested_slot: built.requestedSlot,
-    // 该槽位在语法上允许的符号类别（1 类=唯一解型提示，多类=这格本身有歧义）
+    // 该槽位在结构上允许的符号类别（给前端显示"这格是数字格还是运算符格"）
     slot_kinds: built.slotKinds?.[best.slotIndex] || [],
+    // 玩家自己已排除的符号（只给前端标灰用；模型看不到这份名单）
+    excluded_symbols: built.excludedSymbols?.[best.slotIndex] || [],
     model: result.data?.model || 'jev-latest',
     quota: quotaPayload({ loggedIn, limit, used: nextUsed, resetAt })
   }, 200, setCookie);

@@ -7,6 +7,37 @@ export function boardToWire(tokens) {
   return tokens.map((t) => (t.hidden ? '_' : t.symbol));
 }
 
+const OP_SYMBOLS = new Set(['+', '-', '×', '÷', '^']);
+const FN_SYMBOLS = new Set(['sqrt', 'sin', 'cos', 'tan', 'log', 'ln', 'abs']);
+const kindCodeOf = (symbol) => {
+  if (symbol === 'pi' || symbol === 'e') return 'c';
+  if (OP_SYMBOLS.has(symbol)) return 'o';
+  if (FN_SYMBOLS.has(symbol)) return 'f';
+  return 'd';
+};
+
+/**
+ * 上报「棋盘上画出来的槽位类别」：下划线=数字格（d/c），灰框=运算符格（o/f）。
+ * 这是玩家肉眼可见的信息，交给服务端只是为了省掉它自己反推结构。
+ * 按 t.slotIndex 归位（**不能靠数组先后顺序**，历史上出过索引口径错位的静默 bug）；
+ * 任一隐藏槽拿不到 symbol（如联机模式服务端抹掉了）则整体返回 null，服务端会退回语法 DP。
+ * @returns {string[]|null}
+ */
+export function slotKindsOf(tokens) {
+  if (!Array.isArray(tokens)) return null;
+  const out = [];
+  let slotCount = 0;
+  let ok = true;
+  for (const t of tokens) {
+    if (!t?.hidden) continue;
+    slotCount++;
+    if (!t.symbol) { ok = false; continue; }
+    out[t.slotIndex] = kindCodeOf(t.symbol);
+  }
+  if (!ok || out.length !== slotCount || out.some((c) => !c)) return null;
+  return out;
+}
+
 export function useHint({ difficulty, tokens, history, currentGuess, focusSlot = null }) {
   const [quota, setQuota] = useState(null);
   // 本局所有提示结果，最新的在最前（可折叠、可回查）
@@ -47,6 +78,8 @@ export function useHint({ difficulty, tokens, history, currentGuess, focusSlot =
         current_guess: Array.isArray(currentGuess) ? currentGuess : null,
         // 玩家在棋盘上选中了某个槽位 → 指定只提示这一格；否则由服务端自动推荐
         focus_slot: Number.isInteger(focusSlot) ? focusSlot : null,
+        // 棋盘上画出来的槽位类别（下划线/灰框），玩家可见信息，省掉服务端反推结构
+        slot_kinds: slotKindsOf(tokens),
         exclude_slots: hintedSlots
       });
       if (data?.quota) setQuota(data.quota);
