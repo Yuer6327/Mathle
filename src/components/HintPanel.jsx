@@ -23,12 +23,12 @@ function topPick(result) {
   return list.length ? list[0] : null;
 }
 
-// 语法类别 → 中文说明。1 类=这格只有一种可能（提示更可信）；多类=这格本身有歧义。
-const KIND_LABELS = {
-  digit: '数字 0-9',
-  constant: '常量 π 或 e',
-  operator: '运算符 + − × ÷ ^',
-  function: '函数 √ sin cos tan lg ln abs'
+// 语法类别 → 棋盘上的两种格子。棋盘用「下划线=数字格 / 灰框=运算符格」把类别画出来了，
+// 所以面板的措辞必须与之一致（数字格 = 整数 / π / e；运算符格 = 运算符 / 函数）。
+const GROUP_OF_KIND = { digit: 'number', constant: 'number', operator: 'operator', function: 'operator' };
+const GROUP_TEXT = {
+  number: { name: '数字格', detail: '数字 0-9 / π / e', board: '下划线' },
+  operator: { name: '运算符格', detail: '+ − × ÷ ^ / √ sin cos tan lg ln abs', board: '灰框' }
 };
 
 export default function HintPanel({ result, results = [], activeIndex = 0, onSelect, onClose }) {
@@ -113,28 +113,31 @@ export default function HintPanel({ result, results = [], activeIndex = 0, onSel
             </p>
           )}
 
-          {/* 这格语法上允许哪几类符号：1 类=更可信；多类=这格本身有歧义，别当成乱猜 */}
-          {(result.slot_kinds || []).length > 0 && (
-            <p className="text-xs leading-relaxed">
-              {(result.slot_kinds || []).length === 1 ? (
-                <>
-                  <span className="text-neutral-500">这格语法上只可能是：</span>
-                  <span className="text-green-300">{KIND_LABELS[result.slot_kinds[0]] || result.slot_kinds[0]}</span>
-                </>
-              ) : (
-                <>
-                  <span className="text-neutral-500">这格语法上可能是：</span>
-                  {(result.slot_kinds || []).map((k, idx) => (
-                    <span key={k}>
-                      {idx > 0 && <span className="text-neutral-600"> / </span>}
-                      <span className="text-amber-300/90">{KIND_LABELS[k] || k}</span>
-                    </span>
-                  ))}
-                  <span className="text-neutral-600">（存在歧义，未必是符号被认错）</span>
-                </>
-              )}
-            </p>
-          )}
+          {/* 这格是数字格还是运算符格：与棋盘上的下划线 / 灰框对应 */}
+          {(() => {
+            const groups = [...new Set((result.slot_kinds || []).map((k) => GROUP_OF_KIND[k]).filter(Boolean))];
+            if (groups.length === 0) return null;
+            if (groups.length === 1) {
+              const g = GROUP_TEXT[groups[0]];
+              return (
+                <p className="text-xs leading-relaxed">
+                  <span className="text-neutral-500">这格是</span>
+                  <span className="text-green-300">{g.name}</span>
+                  <span className="text-neutral-500">（{g.detail}）</span>
+                  <span className="text-neutral-600">· 棋盘上显示为{g.board}</span>
+                </p>
+              );
+            }
+            return (
+              <p className="text-xs leading-relaxed">
+                <span className="text-neutral-500">这格可能是</span>
+                <span className="text-amber-300/90">{GROUP_TEXT.number.name}</span>
+                <span className="text-neutral-600">或</span>
+                <span className="text-amber-300/90">{GROUP_TEXT.operator.name}</span>
+                <span className="text-neutral-600">（本局这格的类别不唯一）</span>
+              </p>
+            );
+          })()}
 
           {/* 历史记录：本局用过的提示，点一下就切回去看 */}
           {results.length > 1 && (

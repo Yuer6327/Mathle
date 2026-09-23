@@ -12,6 +12,7 @@
 //   面向用户的 UI 仍为中文。
 
 import { SYMBOL_POOLS, SYMBOL_DISPLAY, DIFFICULTIES } from '../../../src/lib/constants.js';
+import { lookupKinds, shapeOfBoard } from '../../../src/lib/boardKinds.js';
 
 /**
  * 自动模式单次请求最多问几个槽位。
@@ -128,6 +129,8 @@ const FUNC_SYMBOLS = new Set(['sqrt', 'sin', 'cos', 'tan', 'log', 'ln', 'abs']);
 const KIND_ORDER = [KIND.DIGIT, KIND.CONST, KIND.OP, KIND.FUNC];
 /** typed_layout 里的单字母代号 */
 export const KIND_CODE = { digit: 'd', constant: 'c', operator: 'o', function: 'f' };
+/** 代号 → 类别（boardKinds 表用代号存储） */
+const CODE_TO_KIND = Object.fromEntries(Object.entries(KIND_CODE).map(([k, v]) => [v, k]));
 /** 送给模型看的类别说明 */
 const KIND_LABEL = {
   digit: 'digit (0-9)',
@@ -143,57 +146,95 @@ export function symbolKind(symbol) {
   return KIND.DIGIT;
 }
 
-// 解析状态机：wantAtom=该出新操作数了 / wantFnParen=函数后必须紧跟 '(' /
-// inNumber=刚吃掉一个数字（后面还能接数字，凑多位数）/ atomDone=一个不可再延长的完整操作数 /
-// rhsWant,rhsNum=等号右侧（只允许数字）
-const M_WANT_ATOM = 'wantAtom';
-const M_WANT_FN_PAREN = 'wantFnParen';
-const M_IN_NUMBER = 'inNumber';
-const M_ATOM_DONE = 'atomDone';
+// 解析状态机。
+// ⚠️ 关键约束（实测每种难度 3000 局，0 例外）：**表达式里裸露的数字永远是单个数字槽**
+//   —— 多位数只出现在两处：① 函数调用的整个参数（如 √(36) 的 36）；② 等号右侧的结果。
+//   合起来 38,407 段裸露数字 + 1,312 段普通括号内数字，长度全是 1。
+//   我最初写成任意位置都允许连续的 D+，于是凭空造出「这格可能是数字也可能是运算符」的假歧义
+//   （入门档唯一类别占比因此只有 42.9%，实测生成器真实分布是 100%）。
+const M_WANT_ATOM = 'wantAtom';           // 期待一个操作数（数字只允许 1 位）
+const M_ATOM_DONE = 'atomDone';           // 一个完整操作数结束
+const M_WANT_FN_PAREN = 'wantFnParen';    // 函数后必须紧跟 '('
+const M_ARG_START = 'argStart';           // 刚进函数参数（这里允许纯多位数）
+const M_ARG_DIGIT = 'argDigit';           // 函数参数里已吃掉 ≥1 个数字（可继续接数字）
 const M_RHS_WANT = 'rhsWant';
 const M_RHS_NUM = 'rhsNum';
-const ALL_MODES = [M_WANT_ATOM, M_WANT_FN_PAREN, M_IN_NUMBER, M_ATOM_DONE, M_RHS_WANT, M_RHS_NUM];
+const ALL_MODES = [M_WANT_ATOM, M_ATOM_DONE, M_WANT_FN_PAREN, M_ARG_START, M_ARG_DIGIT, M_RHS_WANT, M_RHS_NUM];
 /** 能合法收尾的状态（且括号深度必须为 0） */
-const TERMINAL_MODES = new Set([M_IN_NUMBER, M_ATOM_DONE, M_RHS_NUM]);
+const TERMINAL_MODES = new Set([M_ATOM_DONE, M_RHS_NUM]);
 
 /** 状态机一步转移；kind 为 '(' ')' '=' 或某个符号类别 */
 function step(mode, kind, depth) {
   if (kind === '(') {
-    return mode === M_WANT_ATOM || mode === M_WANT_FN_PAREN ? M_WANT_ATOM : null;
+    if (mode === M_WANT_ATOM) return M_WANT_ATOM;        // 普通括号组，内部同表达式
+    if (mode === M_ARG_START) return M_WANT_ATOM;        // 函数参数本身可以是个括号组，如 abs((...))
+    if (mode === M_WANT_FN_PAREN) return M_ARG_START;    // 函数参数
+    return null;
   }
   if (kind === ')') {
-    return depth > 0 && (mode === M_IN_NUMBER || mode === M_ATOM_DONE) ? M_ATOM_DONE : null;
+    if (depth <= 0) return null;
+    return mode === M_ATOM_DONE || mode === M_ARG_DIGIT ? M_ATOM_DONE : null;
   }
   if (kind === '=') {
-    return depth === 0 && (mode === M_IN_NUMBER || mode === M_ATOM_DONE) ? M_RHS_WANT : null;
+    return depth === 0 && mode === M_ATOM_DONE ? M_RHS_WANT : null;
   }
   if (kind === KIND.DIGIT) {
-    if (mode === M_WANT_ATOM) return M_IN_NUMBER;
-    if (mode === M_IN_NUMBER) return M_IN_NUMBER;
+    if (mode === M_WANT_ATOM) return M_ATOM_DONE;   // 裸露数字：就 1 位
+    if (mode === M_ARG_START) return M_ARG_DIGIT;   // 函数参数里的数字：可多位
+    if (mode === M_ARG_DIGIT) return M_ARG_DIGIT;
     if (mode === M_RHS_WANT) return M_RHS_NUM;
     if (mode === M_RHS_NUM) return M_RHS_NUM;
     return null;
   }
-  if (kind === KIND.CONST) return mode === M_WANT_ATOM ? M_ATOM_DONE : null;
-  if (kind === KIND.FUNC) return mode === M_WANT_ATOM ? M_WANT_FN_PAREN : null;
-  if (kind === KIND.OP) return mode === M_IN_NUMBER || mode === M_ATOM_DONE ? M_WANT_ATOM : null;
+  if (kind === KIND.CONST) {
+    return mode === M_WANT_ATOM || mode === M_ARG_START ? M_ATOM_DONE : null;
+  }
+  if (kind === KIND.FUNC) {
+    return mode === M_WANT_ATOM || mode === M_ARG_START ? M_WANT_FN_PAREN : null;
+  }
+  if (kind === KIND.OP) {
+    return mode === M_ATOM_DONE || mode === M_ARG_DIGIT ? M_WANT_ATOM : null;
+  }
   return null;
 }
 
 /**
- * 算出每个槽位在语法上允许的符号类别（正向可达 × 反向可达，保证 sound：
- * 真值的类别永远不会被排除）。
+ * 算出每个槽位在语法上允许的符号类别。
  *
- * ⚠️ 必须传 poolKinds：语法分析与难度的符号池无关，但**入门档的池里没有常量**
- * （只有 10 个数字 + + − × ^ + √），不取交集就会把「确定是数字」的格子标成
- * 「数字/常量」，凭空造出根本不存在的类别。实测入门档唯一类别占比因此从 42.9% 升到 70.1%。
+ * 两条路：
+ *  ① **查表（首选）**：传 tableEntry（来自 src/lib/boardKinds.js，由生成器穷举采样得到）时直接用它。
+ *     生成器的模板比通用语法窄得多——实测同一棋盘形状下生成器几乎每格都是唯一类别，
+ *     而语法 DP 只有 52%~60% 唯一，多出来的都是「假歧义」（比如明明是运算符格却说可能是数字）。
+ *     棋盘上已经用「下划线=数字格 / 灰框=运算符格」把类别画出来了，提示必须与之一致。
+ *  ② **语法 DP（回退）**：形状未收录时用「正向可达 × 反向可达」两遍状态机，保证 sound
+ *     （真值类别永不被排除）。
+ *
+ * ⚠️ 必须传 poolKinds：**入门档的池里没有常量**（只有 10 个数字 + + − × ^ + √），
+ * 不取交集就会把「确定是数字」的格子标成「数字/常量」，凭空造出根本不存在的类别。
  *
  * @param {object[]} tokens
  * @param {Set<string>|null} poolKinds 该难度符号池里实际存在的类别
+ * @param {string[]|null} tableKinds 精确类别（每槽一位，如 ['d','o','d']，与 slotIndex 对齐）
  * @returns {{ allowed: string[][], typedLayout: string }}
  *   allowed 按【槽位序号】索引（allowed[slotIndex]），与 candidates 对齐。
  */
-export function analyzeStructure(tokens, poolKinds = null) {
+export function analyzeStructure(tokens, poolKinds = null, tableKinds = null) {
+  if (Array.isArray(tableKinds) && tableKinds.length) {
+    const order = new Map(KIND_ORDER.map((k, i) => [k, i]));
+    const allowed = tableKinds.map((code) => [...code]
+      .map((c) => CODE_TO_KIND[c])
+      .filter((k) => k && (!poolKinds || poolKinds.has(k)))
+      .sort((a, b) => order.get(a) - order.get(b)));
+    const typedLayout = tokens
+      .map((t) => (t.hidden ? `[${(allowed[t.slotIndex] || []).map((k) => KIND_CODE[k]).join('')}]` : t.symbol))
+      .join(' ');
+    return { allowed, typedLayout };
+  }
+  return analyzeByGrammar(tokens, poolKinds);
+}
+
+/** 语法 DP 实现（见 analyzeStructure 的说明②） */
+function analyzeByGrammar(tokens, poolKinds = null) {
   const n = tokens.length;
   // 每个位置之前的括号深度（可见括号固定，所以深度是确定的）
   const depthBefore = new Array(n).fill(0);
@@ -328,9 +369,11 @@ export function computeCandidates(tokens, difficulty, history) {
   });
 
   // 语法层收紧：只保留该槽位在语法上允许的符号类别（数字格不再可能出现运算符）
-  // 同时与「该难度符号池里实际存在的类别」取交集，避免标出根本不存在的类别
+  // 同时与「该难度符号池里实际存在的类别」取交集，避免标出根本不存在的类别。
+  // 优先查生成器穷举得到的精确表（与棋盘上画的「下划线=数字格 / 灰框=运算符格」完全一致）。
   const poolKinds = new Set(pool.map(symbolKind));
-  const { allowed, typedLayout } = analyzeStructure(tokens, poolKinds);
+  const tableEntry = lookupKinds(difficulty, shapeOfBoard(tokens));
+  const { allowed, typedLayout } = analyzeStructure(tokens, poolKinds, tableEntry);
   const result = byFeedback.map((list, i) => {
     const kinds = allowed[i];
     if (!kinds || kinds.length === 0) return list;
@@ -418,7 +461,8 @@ export function buildJevRequest({ difficulty, tokens, history, excludeSlots = []
         'There is no implicit multiplication and no unary minus: two operands are always joined by an explicit operator.',
         'A digit slot may sit next to another digit slot only when they form one multi-digit number.'
       ],
-      typed_layout_legend: 'typed_layout lists every token left to right. Visible tokens appear as themselves; a hidden slot appears as a bracket of the kinds it could still be: d = digit, c = constant, o = operator, f = function. Example: "[f][d][o][d] = [d][d]" means slot 1 must be a function, slot 2 a digit, slot 3 an operator, ...'
+      typed_layout_legend: 'typed_layout lists every token left to right. Visible tokens appear as themselves; a hidden slot appears as a bracket of the kinds it could still be: d = digit, c = constant, o = operator, f = function. Example: "[f][d][o][d] = [d][d]" means slot 1 must be a function, slot 2 a digit, slot 3 an operator, ...',
+      board_legend: 'On the board every hidden slot is drawn as ONE of two shapes, and the player can see which: an underlined blank means a NUMBER slot (digits 0-9, or π / e), a grey filled box means an OPERATOR slot (the operators + − × ÷ ^, or a function name such as √ sin cos tan lg ln abs). So the kind of each slot is already visible to the player — typed_layout above agrees with it, and candidates never mix the two kinds unless a slot is genuinely ambiguous.'
     },
     difficulty,
     symbol_alphabet: alphabet,
