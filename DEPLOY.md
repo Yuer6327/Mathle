@@ -5,7 +5,8 @@
 ```
 前端 (Vite + React + Tailwind) → Cloudflare Worker（静态资源 assets + SPA 回退）
 API  (Worker 路由)               → 同域名 /api/* 路由，复用 functions/ 处理函数
-DB   (D1 SQLite, APAC)          → 用户、游戏记录、排行榜
+DB   (D1 SQLite, APAC)          → 用户、游戏记录、排行榜、提示配额
+定时  (Cron Trigger, 每日 UTC 18:00) → 清理过期的提示配额与游戏记录
 认证  (JWT HMAC-SHA256)           → HttpOnly Cookie，无第三方依赖
 ```
 
@@ -103,6 +104,28 @@ zone_id = "a7aa2aef32198c741273fe14173ebb59"
 
 ---
 
+## 定时清理（D1）
+
+`wrangler.toml` 里的 `[triggers] crons = ["0 18 * * *"]`（UTC 18:00 = 北京 02:00）每天调用一次 `src/worker.js` 的 `scheduled`，执行 `functions/jobs/d1-cleanup.js`：
+
+| 表 | 保留期 | 理由 |
+|---|---|---|
+| `hint_usage` | 30 天 | 每个（配额主体, 日）一行，游客 cookie 一换就多一个主体；线上只查当天 |
+| `game_records` | 180 天 | 每局一行；前端只读最近 20 条，聚合数据在 `leaderboard` 里 |
+| `users` / `leaderboard` | 不清理 | 账号本体 / 聚合结果，行数只跟用户数有关 |
+
+保留期可用 `CLEANUP_HINT_DAYS` / `CLEANUP_RECORD_DAYS` / `CLEANUP_MAX_BATCHES` 覆盖。
+
+```bash
+npm run db:cleanup:test      # 假 D1 跑分批逻辑，验证不联网
+npm run db:cleanup:local     # 本地 D1 手动清一次
+npm run db:cleanup:remote    # 生产手动清一次（⚠️ 不可逆）
+```
+
+注意：D1 删除后腾出的页会被后续写入复用，控制台显示的库大小不一定立刻变小（D1 没有 VACUUM）。
+
+---
+
 ## 本地开发
 
 ```bash
@@ -128,26 +151,33 @@ npx wrangler dev --proxy 5173
 
 ```
 ├── .github/workflows/          ← push 到 main 自动部署 Cloudflare
-├── functions/                  ← Pages Functions (API)
-│   └── api/
-│       ├── _middleware.js      ← CORS 中间件
-│       ├── _lib/
-│       │   ├── jwt.js          ← JWT 签发/验证
-│       │   ├── crypto.js       ← PBKDF2 密码哈希
-│       │   └── response.js     ← JSON 响应工具
-│       ├── auth/
-│       │   ├── register.js     ← POST /api/auth/register
-│       │   ├── login.js        ← POST /api/auth/login
-│       │   └── me.js           ← GET  /api/auth/me
-│       ├── ws-ticket.js        ← GET  /api/ws-ticket（联机 ticket）
-│       ├── stats.js            ← GET/POST /api/stats
-│       └── leaderboard/
-│           └── [difficulty].js ← GET /api/leaderboard/:difficulty
+├── functions/                  ← Worker 侧代码
+│   ├── api/                    ← /api/* 处理函数（被 src/worker.js 手动路由）
+│   │   ├── _middleware.js      ← CORS 中间件
+│   │   ├── _lib/
+│   │   │   ├── jwt.js          ← JWT 签发/验证
+│   │   │   ├── crypto.js       ← PBKDF2 密码哈希
+│   │   │   ├── hintPrompt.js   ← Jev 请求构建
+│   │   │   └── response.js     ← JSON 响应工具
+│   │   ├── auth/
+│   │   │   ├── register.js     ← POST /api/auth/register
+│   │   │   ├── login.js        ← POST /api/auth/login
+│   │   │   └── me.js           ← GET  /api/auth/me
+│   │   ├── ws-ticket.js        ← GET  /api/ws-ticket（联机 ticket）
+│   │   ├── hint.js             ← GET/POST /api/hint（Jev 概率提示 + 配额）
+│   │   ├── stats.js            ← GET/POST /api/stats
+│   │   └── leaderboard/
+│   │       └── [difficulty].js ← GET /api/leaderboard/:difficulty
+│   └── jobs/
+│       └── d1-cleanup.js       ← Cron 清理作业（过期 hint_usage / game_records）
 ├── migrations/
-│   └── 0001_init.sql           ← D1 初始化 SQL
+│   ├── 0001_init.sql           ← D1 初始化 SQL
+│   └── 0002_hint_usage.sql     ← 提示配额表
 ├── server/                     ← VPS 联机 WebSocket 服务（部署到 VPS，见 server/README.md）
 ├── scripts/
-│   └── deploy-vps.sh           ← 一键部署 VPS 联机服务
+│   ├── deploy-vps.sh           ← 一键部署 VPS 联机服务
+│   ├── d1-cleanup.sql          ← 手动清理 SQL（与 Cron 作业同口径）
+│   └── test-d1-cleanup.mjs     ← 清理逻辑的假 D1 单测（npm run db:cleanup:test）
 ├── src/
 │   ├── worker.js               ← Worker 入口（路由 /api/* + 静态资源转发）
 │   ├── lib/
@@ -164,7 +194,7 @@ npx wrangler dev --proxy 5173
 │   │   ├── useOnlineGame.js    ← 联机对局状态
 │   │   └── useAuth.jsx         ← 认证状态
 │   └── components/             ← UI 组件（含 OnlineGameScreen.jsx）
-├── wrangler.toml               ← Cloudflare 配置（Worker + assets + D1 + 路由）
+├── wrangler.toml               ← Cloudflare 配置（Worker + assets + D1 + 路由 + Cron）
 └── package.json
 ```
 
@@ -179,6 +209,8 @@ npx wrangler dev --proxy 5173
 | GET | /api/auth/me | Cookie | 获取当前用户 |
 | GET | /api/stats | ✅ | 获取云端统计 |
 | POST | /api/stats | ✅ | 提交游戏记录 |
+| GET | /api/hint | Cookie | 查询今日提示配额 |
+| POST | /api/hint | Cookie | 消耗一次提示（游客 1 次/天，登录 100 次/天，按 UTC+8 自然日） |
 | GET | /api/leaderboard/:difficulty | ❌ | 排行榜（前50名） |
 
 ---

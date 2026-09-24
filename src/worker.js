@@ -8,6 +8,7 @@ import { onRequestGet as statsGet, onRequestPost as statsPost } from '../functio
 import { onRequestGet as leaderboardGet } from '../functions/api/leaderboard/[difficulty].js';
 import { onRequestGet as wsTicketGet } from '../functions/api/ws-ticket.js';
 import { onRequestGet as hintGet, onRequestPost as hintPost } from '../functions/api/hint.js';
+import { runD1Cleanup } from '../functions/jobs/d1-cleanup.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -74,5 +75,19 @@ export default {
     }
 
     return withCors(response);
+  },
+
+  // Cron Trigger（见 wrangler.toml [triggers]）：清理过期的 hint_usage / game_records
+  async scheduled(event, env, ctx) {
+    const task = (async () => {
+      try {
+        const summary = await runD1Cleanup(env, { now: event.scheduledTime || Date.now() });
+        console.log('[d1-cleanup]', JSON.stringify(summary));
+      } catch (e) {
+        // 清理失败不影响线上，下次再跑即可
+        console.error('[d1-cleanup] failed:', e?.stack || e?.message || String(e));
+      }
+    })();
+    if (ctx?.waitUntil) ctx.waitUntil(task); else await task;
   }
 };

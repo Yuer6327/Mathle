@@ -15,5 +15,10 @@ database_id = "5d3568ec-309c-48c8-9f13-3a3e47aaeec2"
 pattern = "wordle.yuer6327.top/*"
 zone_id = "a7aa2aef32198c741273fe14173ebb59"
 
+# 每日 UTC 18:00（北京 02:00）清理过期数据，处理函数见 src/worker.js 的 scheduled
+# 保留期可用 CLEANUP_HINT_DAYS / CLEANUP_RECORD_DAYS / CLEANUP_MAX_BATCHES 覆盖（wrangler secret 或 [vars]）
+[triggers]
+crons = ["0 18 * * *"]
+
 # 本地开发: npx wrangler dev
 # 部署: npm run build && wrangler deploy

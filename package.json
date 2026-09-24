@@ -11,7 +11,10 @@
     "deploy": "npm run build && wrangler deploy",
     "db:create": "wrangler d1 create mathwordle",
     "db:migrate:local": "wrangler d1 execute mathwordle --local --file=migrations/0001_init.sql",
-    "db:migrate:remote": "wrangler d1 execute mathwordle --remote --file=migrations/0001_init.sql"
+    "db:migrate:remote": "wrangler d1 execute mathwordle --remote --file=migrations/0001_init.sql",
+    "db:cleanup:local": "wrangler d1 execute mathwordle --local --file=scripts/d1-cleanup.sql",
+    "db:cleanup:remote": "wrangler d1 execute mathwordle --remote --file=scripts/d1-cleanup.sql",
+    "db:cleanup:test": "node scripts/test-d1-cleanup.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
