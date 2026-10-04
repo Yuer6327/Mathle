@@ -29,3 +29,7 @@ crons = ["0 18 * * *"]
 binding = "AUTH_DB"
 database_name = "auth-db"
 database_id = "85b7d1cc-fbb4-4ffe-8f1e-b6690c193a1f"
+
+# 统一认证 OAuth 客户端（授权码模式示范；secret 走 wrangler secret put OAUTH_CLIENT_SECRET）
+[vars]
+OAUTH_CLIENT_ID = "ac_88a682c75b745238"

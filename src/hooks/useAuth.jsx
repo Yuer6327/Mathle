@@ -5,11 +5,6 @@ import { api } from '../lib/api.js';
 
 const AUTH_URL = 'https://auth.yuer6327.top';
 
-function gotoAuth(path) {
-  const next = encodeURIComponent(location.pathname + location.search);
-  window.location.href = `${AUTH_URL}${path}?next=${next}`;
-}
-
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -23,8 +18,9 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = useCallback(() => gotoAuth('/login'), []);
-  const register = useCallback(() => gotoAuth('/register'), []);
+  // 登录/注册都走统一认证的 OAuth 授权页：未登录会被平台引到登录/注册，完成后原路返回
+  const login = useCallback(() => { window.location.href = '/api/auth/oauth-start'; }, []);
+  const register = useCallback(() => { window.location.href = '/api/auth/oauth-start'; }, []);
   const logout = useCallback(() => {
     window.location.href = `${AUTH_URL}/logout?next=%2F`;
   }, []);

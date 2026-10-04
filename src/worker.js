@@ -2,6 +2,7 @@
 // 静态资源（dist/）由 assets 绑定提供，/api/* 由下方路由分发到现有 Pages Functions 处理函数
 // 登录/注册已上移到 auth.yuer6327.top 统一认证（前端直接跳转，会话校验走 AUTH_DB），本地不再有 auth 写接口
 import { onRequestGet as meGet } from '../functions/api/auth/me.js';
+import { onRequestGet as oauthStart, onRequestGetCallback as oauthCallback } from '../functions/api/auth/oauth.js';
 import { onRequestGet as statsGet, onRequestPost as statsPost } from '../functions/api/stats.js';
 import { onRequestGet as leaderboardGet } from '../functions/api/leaderboard/[difficulty].js';
 import { onRequestGet as wsTicketGet } from '../functions/api/ws-ticket.js';
@@ -39,6 +40,10 @@ export default {
 
     if (pathname === '/api/auth/me' && request.method === 'GET') {
       response = await meGet(ctx);
+    } else if (pathname === '/api/auth/oauth-start' && request.method === 'GET') {
+      response = await oauthStart(ctx);
+    } else if (pathname === '/auth/callback' && request.method === 'GET') {
+      response = await oauthCallback(ctx);
     } else if (pathname === '/api/ws-ticket' && request.method === 'GET') {
       response = await wsTicketGet(ctx);
     } else if (pathname === '/api/hint' && request.method === 'GET') {
