@@ -1,8 +1,6 @@
 // Cloudflare Worker 入口
 // 静态资源（dist/）由 assets 绑定提供，/api/* 由下方路由分发到现有 Pages Functions 处理函数
-import { onRequestPost as registerPost } from '../functions/api/auth/register.js';
-import { onRequestPost as loginPost } from '../functions/api/auth/login.js';
-import { onRequestPost as logoutPost } from '../functions/api/auth/logout.js';
+// 登录/注册已上移到 auth.yuer6327.top 统一认证（前端直接跳转，会话校验走 AUTH_DB），本地不再有 auth 写接口
 import { onRequestGet as meGet } from '../functions/api/auth/me.js';
 import { onRequestGet as statsGet, onRequestPost as statsPost } from '../functions/api/stats.js';
 import { onRequestGet as leaderboardGet } from '../functions/api/leaderboard/[difficulty].js';
@@ -39,13 +37,7 @@ export default {
     const ctx = { request, env, params: {} };
     let response;
 
-    if (pathname === '/api/auth/register' && request.method === 'POST') {
-      response = await registerPost(ctx);
-    } else if (pathname === '/api/auth/login' && request.method === 'POST') {
-      response = await loginPost(ctx);
-    } else if (pathname === '/api/auth/logout' && request.method === 'POST') {
-      response = await logoutPost(ctx);
-    } else if (pathname === '/api/auth/me' && request.method === 'GET') {
+    if (pathname === '/api/auth/me' && request.method === 'GET') {
       response = await meGet(ctx);
     } else if (pathname === '/api/ws-ticket' && request.method === 'GET') {
       response = await wsTicketGet(ctx);

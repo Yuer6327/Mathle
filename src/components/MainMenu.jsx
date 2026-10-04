@@ -4,26 +4,21 @@ import { DIFFICULTY_LABELS, DIFFICULTY_ACTIVE } from '../lib/constants.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 import Icon from './Icons.jsx';
 
-// 主菜单：一屏排版，登录/注册在右上角（弹窗表单）
+// 主菜单：一屏排版，登录/注册在右上角（跳转统一认证平台 auth.yuer6327.top）
 export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLeaderboard }) {
   const { user, loading, login, register, logout } = useAuth();
-  const [authMode, setAuthMode] = useState(null);
-  const [formName, setFormName] = useState('');
-  const [formPass, setFormPass] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [authError, setAuthError] = useState('');
   const [roomCode, setRoomCode] = useState('');
 
   const mainRef = useRef(null);
   const [fits, setFits] = useState(true); // 主内容能否一页放下
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // 从别处跳过来要登录（如提示次数用完的弹窗 → /?auth=login）：直接打开登录弹窗
+  // 从别处跳过来要登录（如提示次数用完的弹窗 → /?auth=login）：直接去认证平台
   useEffect(() => {
     if (loading || user) return;
     if (searchParams.get('auth') === 'login') {
-      openAuth('login');
-      setSearchParams({}, { replace: true }); // 清掉参数，避免返回/刷新时又弹
+      setSearchParams({}, { replace: true }); // 清掉参数，避免返回/刷新时又跳
+      login();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, loading, user]);
@@ -46,41 +41,6 @@ export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLead
       window.removeEventListener('resize', measure);
     };
   }, [user]);
-
-  const handleSubmit = async () => {
-    if (!formName.trim() || !formPass) {
-      setAuthError('请填写昵称和密码');
-      return;
-    }
-    setSubmitting(true);
-    setAuthError('');
-    try {
-      if (authMode === 'login') {
-        await login(formName.trim(), formPass);
-      } else {
-        await register(formName.trim(), formPass);
-      }
-      setAuthMode(null);
-      setFormName('');
-      setFormPass('');
-    } catch (e) {
-      setAuthError(e.message || '操作失败');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const openAuth = (mode) => {
-    setAuthMode(mode);
-    setAuthError('');
-    setFormName('');
-    setFormPass('');
-  };
-
-  const switchAuth = (mode) => {
-    setAuthMode(mode);
-    setAuthError('');
-  };
 
   const [gameDiff, setGameDiff] = useState('medium'); // 单人 / 人机难度
   const [onlineDiff, setOnlineDiff] = useState('medium');
@@ -110,13 +70,13 @@ export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLead
         ) : (
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => openAuth('login')}
+              onClick={login}
               className="px-3 py-1.5 rounded-lg text-sm text-neutral-300 hover:text-neutral-100 hover:bg-neutral-800 transition"
             >
               登录
             </button>
             <button
-              onClick={() => openAuth('register')}
+              onClick={register}
               className="px-3 py-1.5 rounded-lg text-sm bg-neutral-100 text-neutral-950 font-semibold hover:bg-neutral-200 transition"
             >
               注册
@@ -193,51 +153,7 @@ export default function MainMenu({ onStart, onRoomStart, onShowStats, onShowLead
         </a>
       </footer>
 
-      {/* 登录 / 注册弹窗 */}
-      {authMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setAuthMode(null)}>
-          <div className="w-full max-w-sm bg-neutral-900 border border-neutral-700 rounded-2xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-neutral-100">{authMode === 'login' ? '登录' : '注册'}</h2>
-              <button onClick={() => setAuthMode(null)} className="text-neutral-400 hover:text-neutral-200 transition">
-                <Icon name="close" className="w-5 h-5" />
-              </button>
-            </div>
-            <input
-              type="text"
-              placeholder="昵称"
-              value={formName}
-              onChange={e => setFormName(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-100 placeholder-neutral-400 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
-            />
-            <input
-              type="password"
-              placeholder="密码"
-              value={formPass}
-              onChange={e => setFormPass(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-              className="w-full px-4 py-3 rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-100 placeholder-neutral-400 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
-            />
-            {authError && <div className="text-sm text-red-400">{authError}</div>}
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="w-full py-3 rounded-lg bg-neutral-100 text-neutral-950 font-bold hover:bg-neutral-200 transition disabled:opacity-40"
-            >
-              {submitting ? '处理中...' : (authMode === 'login' ? '登录' : '注册')}
-            </button>
-            {authMode === 'login' ? (
-              <button onClick={() => switchAuth('register')} className="text-sm text-neutral-400 hover:text-neutral-200 underline">
-                没有账号？去注册
-              </button>
-            ) : (
-              <button onClick={() => switchAuth('login')} className="text-sm text-neutral-400 hover:text-neutral-200 underline">
-                已有账号？去登录
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {/* 登录/注册由统一认证平台承担：点击右上角按钮即跳转 auth.yuer6327.top */}
     </div>
   );
 }

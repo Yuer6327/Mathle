@@ -1,6 +1,14 @@
 // Auth 状态管理 hook
+// 登录/注册/退出统一跳转 auth.yuer6327.top（同根域共享会话），本站只保留会话读取
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { api } from '../lib/api.js';
+
+const AUTH_URL = 'https://auth.yuer6327.top';
+
+function gotoAuth(path) {
+  const next = encodeURIComponent(location.pathname + location.search);
+  window.location.href = `${AUTH_URL}${path}?next=${next}`;
+}
 
 const AuthContext = createContext(null);
 
@@ -15,25 +23,10 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = useCallback(async (nickname, password) => {
-    const data = await api.auth.login(nickname, password);
-    setUser(data.user);
-    return data;
-  }, []);
-
-  const register = useCallback(async (nickname, password) => {
-    const data = await api.auth.register(nickname, password);
-    setUser(data.user);
-    return data;
-  }, []);
-
-  const logout = useCallback(async () => {
-    try {
-      await api.auth.logout();
-    } catch (e) {
-      // 网络失败也照样清除本地登录态（HttpOnly cookie 仍在，刷新后可能回弹）
-    }
-    setUser(null);
+  const login = useCallback(() => gotoAuth('/login'), []);
+  const register = useCallback(() => gotoAuth('/register'), []);
+  const logout = useCallback(() => {
+    window.location.href = `${AUTH_URL}/logout?next=%2F`;
   }, []);
 
   return (

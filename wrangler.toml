@@ -22,3 +22,10 @@ crons = ["0 18 * * *"]
 
 # 本地开发: npx wrangler dev
 # 部署: npm run build && wrangler deploy
+
+# 统一认证库（auth.yuer6327.top 同一个 D1）：登录/注册在 auth 平台完成，
+# 本 Worker 只校验共享 cookie 会话（见 functions/api/_lib/response.js 的 requireAuth）
+[[d1_databases]]
+binding = "AUTH_DB"
+database_name = "auth-db"
+database_id = "85b7d1cc-fbb4-4ffe-8f1e-b6690c193a1f"

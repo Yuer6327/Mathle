@@ -39,13 +39,21 @@ export function withCors(handler) {
   };
 }
 
-// JWT 鉴权中间件
-import { verifyJWT, getTokenFromRequest } from './jwt.js';
+// 统一认证会话校验：直接查 auth-db（与 auth.yuer6327.top 共用同一 D1）。
+// 登录/注册已上移到 auth 平台，本地不再自签 JWT；会话 cookie 名为 s（HttpOnly）。
+const enc = new TextEncoder();
+async function sha256Hex(s) {
+  const d = await crypto.subtle.digest('SHA-256', enc.encode(s));
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 export async function requireAuth(context) {
-  const token = getTokenFromRequest(context.request);
-  if (!token) return null;
-  const payload = await verifyJWT(token, context.env.JWT_SECRET);
-  if (!payload) return null;
-  return payload;
+  const m = (context.request.headers.get('cookie') || '').match(/(?:^|;\s*)s=([A-Za-z0-9_-]+)/);
+  if (!m || !context.env.AUTH_DB) return null;
+  const row = await context.env.AUTH_DB.prepare(
+    'SELECT u.id, u.email, u.name, u.role FROM sessions s JOIN users u ON u.id = s.user_id ' +
+    'WHERE s.token_hash = ? AND s.expires_at > ? AND u.banned = 0'
+  ).bind(await sha256Hex(m[1]), Date.now()).first();
+  if (!row) return null;
+  return { sub: row.id, nickname: row.name || row.email.split('@')[0], email: row.email, role: row.role };
 }

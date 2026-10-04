@@ -26,18 +26,6 @@ async function apiCall(path, options = {}) {
 
 export const api = {
   auth: {
-    register: (nickname, password) =>
-      apiCall('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({ nickname, password })
-      }),
-    login: (nickname, password) =>
-      apiCall('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ nickname, password })
-      }),
-    logout: () =>
-      apiCall('/auth/logout', { method: 'POST' }),
     me: () => apiCall('/auth/me')
   },
   wsTicket: (params) => {
